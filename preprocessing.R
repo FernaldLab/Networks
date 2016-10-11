@@ -1,18 +1,3 @@
-#################################################################################
-### load raw TPM data
-#################################################################################
-# rm(list=ls());
-# source('/Volumes/fishstudies-1/_code/preProcATH-for_web_noVSN.R');
-
-# expressionDIR = '~/Documents/kallisto_expr_cutadaptJan27/'  
-# setwd(expressionDIR);
-
-# tpm0 = read.table(paste0(expressionDIR, 'TPM_raw.tsv'), header=T, row.names=1);
-# rg0 = read.table('~/Documents/rg_withFirst30Beh.tsv', header=T, row.names=1, sep='\t');
-
-# # make sure the samples match up before doing this
-# names(tpm0) = rownames(rg0);
-
 ##########################
 # set up options
 init = function() {
@@ -25,6 +10,7 @@ init();
 # setUpForDevelopment
 #
 # setwd('~/Desktop/Kai Fall 2016/Networks');
+# source('preprocessing.R');
 # setUpForDevelopment();
 #
 # Description:
@@ -41,8 +27,10 @@ init();
 ################################################################################
 setUpForDevelopment = function() {
 	source('utils.R');
-	transcription_data <<- read.table('test_data/transcription_data.tsv', header = T, row.names = 1);
-	readgroup_data <<- read.table('test_data/readgroupsdata.tsv', header = T, row.names = 1, sep = '\t');
+	trans_and_rg_data <- getAndValidateData(transcription_tsv = 'test_data/transcription_data.tsv',
+	                               readgroup_tsv = 'test_data/readgroupsdata.tsv');
+	transcription_data <<- trans_and_rg_data$transcription_data;
+	readgroup_data <<- trans_and_rg_data$readgroup_data;
 }
 
 
@@ -76,7 +64,7 @@ setUpForDevelopment = function() {
 .matchSubjectNames = function(transcription_data, readgroup_data) {
 	# we should really assert that all the names are really the same, but for now,
 	# we'll content ourselves with a hacky version that just checks the barcodes
-	# are the same.
+	# are the same. BACKLOG
 	transcription_barcodes = regmatches(names(transcription_data), regexpr('[ACTG]*$', names(transcription_data)));
 	readgroup_barcodes = regmatches(rownames(readgroup_data), regexpr('[ACTG]*$', rownames(readgroup_data)));
 	stopifnot(sum(transcription_barcodes != readgroup_barcodes) == 0);
@@ -88,9 +76,9 @@ setUpForDevelopment = function() {
 ################################################################################
 # getAndValidateData
 #
-# dataList <- getAndValidateData();
-# transcription_data = dataList$transcription_data;
-# readgroup_data = dataList$readgroup_data;
+# trans_and_rg_data <- getAndValidateData();
+# transcription_data = trans_and_rg_data$transcription_data;
+# readgroup_data = trans_and_rg_data$readgroup_data;
 #
 # Description:
 #	Gets transcription data from parameter transcription_tsv or
@@ -129,9 +117,79 @@ getAndValidateData = function(transcription_tsv = NA, readgroup_tsv = NA) {
 	cat('Loading read group data from file \'', readgroup_tsv, '\'\n');
 	readgroup_data = read.table(readgroup_tsv, header = T, row.names = 1, sep = '\t');
 
-	# this would be a great place to assert that transcription_data and readgroup_data are valid.
+	# this would be a great place to assert that transcription_data and readgroup_data are valid. BACKLOG
 
-	dataList = .matchSubjectNames(transcription_data=transcription_data, readgroup_data=readgroup_data);
+	trans_and_rg_data = .matchSubjectNames(transcription_data=transcription_data, readgroup_data=readgroup_data);
 
-	return(dataList);
+	return(trans_and_rg_data);
 }
+
+
+################################################################################
+# getSubset
+#
+# Description:
+#	Should either return a List of subsets (all, all but ND, females, etc.) and/or
+#	fetch the data for a specified subset (from transcription_data and readgroup_data)
+#	TODO implement
+#	see ref lines 18-43
+################################################################################
+getSubset = function() {
+	stop('getSubset is unimplemented.')
+}
+
+
+################################################################################
+# removeExcludedGenes
+# 
+#
+#
+# Description:
+#
+# Arguments:
+#
+# Returns:
+################################################################################
+removeExcludedGenes = function(trans_and_rg_data, geneNamesToExclude = c()) {
+	transcription_data = trans_and_rg_data$transcription_data;
+
+	# remove given genes
+	rowsToRemove = match(geneNamesToExclude, rownames(transcription_data));
+	transcription_data = transcription_data[-rowsToRemove,];
+
+	# remove genes with zero variance
+	transcription_data = transcription_data[apply(transcription_data, 1, var) > 0,]
+
+
+	return(trans_and_rg_data);
+}
+
+
+
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+# HERE IS THE SCRIPT PART
+# trans_and_rg_data = getAndValidateData()
+# removeExcludedGenes() TODO implement
+# removeExcludedSamples() TODO implement
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
