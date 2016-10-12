@@ -27,10 +27,10 @@ init();
 ################################################################################
 setUpForDevelopment = function() {
 	source('utils.R');
-	trans_and_rg_data <- getAndValidateData(transcription_tsv = 'test_data/transcription_data.tsv',
-	                               readgroup_tsv = 'test_data/readgroupsdata.tsv');
-	transcription_data <<- trans_and_rg_data$transcription_data;
-	readgroup_data <<- trans_and_rg_data$readgroup_data;
+	trans_and_rg_data <<- getAndValidateData(transcription_tsv = 'test_data/transcription_data.tsv',
+	                                         readgroup_tsv = 'test_data/readgroupsdata.tsv');
+	#transcription_data <<- trans_and_rg_data$transcription_data;
+	#readgroup_data <<- trans_and_rg_data$readgroup_data;
 }
 
 
@@ -65,8 +65,8 @@ setUpForDevelopment = function() {
 	# we should really assert that all the names are really the same, but for now,
 	# we'll content ourselves with a hacky version that just checks the barcodes
 	# are the same. BACKLOG
-	transcription_barcodes = regmatches(names(transcription_data), regexpr('[ACTG]*$', names(transcription_data)));
-	readgroup_barcodes = regmatches(rownames(readgroup_data), regexpr('[ACTG]*$', rownames(readgroup_data)));
+	transcription_barcodes = regmatches(names(transcription_data), regexpr('[ACTG]{6}', names(transcription_data)));
+	readgroup_barcodes = regmatches(rownames(readgroup_data), regexpr('[ACTG]{6}', rownames(readgroup_data)));
 	stopifnot(sum(transcription_barcodes != readgroup_barcodes) == 0);
 
 	names(transcription_data) = rownames(readgroup_data);
@@ -140,30 +140,97 @@ getSubset = function() {
 
 
 ################################################################################
-# removeExcludedGenes
+# removeExcludedGenesAndNormalize
 # 
-#
+# trans_and_rg_data <- removeExcludedGenesAndNormalize(trans_and_rg_data=trans_and_rg_data)
 #
 # Description:
+#   Removes the genes named in genes_to_exclude, eliminates genes with zero
+#   variance, and normalizes the other genes to be log(expression + 1).
 #
 # Arguments:
+#	Required:
+#	trans_and_rg_data - A list containing:
+#		transcription_data - A data frame where each row is a gene and each column
+#		                     is a subject, giving the transcripts per million (TPM)
+#		                     expression level of each gene
+#		readgroup_data     - A data frame with rownames equal to the column
+#		                     names of transcription_data, containing columns with
+#		                     read group data and (optionally) behavior data
+#
+#	Optional:
+#	genes_to_exclude  - A character vector containing names of genes to exclude
+#	log_addition      - The constant to add to each expression level before taking
+#                       the log (necessary because log(0) = -infinity)
+#                       This is a TEST_PARAMETER
 #
 # Returns:
+#	A list containing:
+#	transcription_data - A data frame where each row is a gene and each column
+#	                     is a subject, giving the log transcripts per million (TPM)
+#	                     expression level of each gene
+#	readgroup_data     - A data frame with rownames equal to the column
+#	                     names of transcription_data, containing columns with
+#	                     read group data and (optionally) behavior data
 ################################################################################
-removeExcludedGenes = function(trans_and_rg_data, geneNamesToExclude = c()) {
+removeExcludedGenesAndNormalize = function(trans_and_rg_data,
+                                           genes_to_exclude = c(),
+							               log_addition = 1) {
 	transcription_data = trans_and_rg_data$transcription_data;
 
 	# remove given genes
-	rowsToRemove = match(geneNamesToExclude, rownames(transcription_data));
-	transcription_data = transcription_data[-rowsToRemove,];
+	if (length(genes_to_exclude)) {
+		rowsToRemove = match(genes_to_exclude, rownames(transcription_data));
+		transcription_data = transcription_data[-rowsToRemove,];
+	}
 
 	# remove genes with zero variance
-	transcription_data = transcription_data[apply(transcription_data, 1, var) > 0,]
+	transcription_data = transcription_data[apply(transcription_data, 1, var) > 0,];
 
+	# take log of gene expression
+	transcription_data = log2(transcription_data + log_addition);
 
+	trans_and_rg_data$transcription_data = transcription_data;
 	return(trans_and_rg_data);
 }
 
+
+################################################################################
+# removeRarelyExpressedGenes
+# 
+# trans_and_rg_data <- removeRarelyExpressedGenes(trans_and_rg_data=trans_and_rg_data)
+#
+# Description:
+#	Removes genes with too many zero-expression values in the dataset, as determined
+#	by the parameters.
+#
+# Arguments:
+#	Required:
+#	trans_and_rg_data - A list containing:
+#		transcription_data - A data frame where each row is a gene and each column
+#		                     is a subject, giving the log transcripts per million (TPM)
+#		                     expression level of each gene
+#		readgroup_data     - A data frame with rownames equal to the column
+#		                     names of transcription_data, containing columns with
+#		                     read group data and (optionally) behavior data
+#
+#	Optional:
+#	zlim              - The maximum number of zero values allowed
+#
+# Returns:
+#	A list containing:
+#	transcription_data - A data frame where each row is a gene and each column
+#	                     is a subject, giving the log transcripts per million (TPM)
+#	                     expression level of each gene
+#	readgroup_data     - A data frame with rownames equal to the column
+#	                     names of transcription_data, containing columns with
+#	                     read group data and (optionally) behavior data
+################################################################################
+removeRarelyExpressedGenes = function(trans_and_rg_data,
+                                      zlim = NA) {
+	stop('Unimplemented.')
+	return(trans_and_rg_data);
+}
 
 
 
@@ -175,8 +242,12 @@ removeExcludedGenes = function(trans_and_rg_data, geneNamesToExclude = c()) {
 ################################################################################
 # HERE IS THE SCRIPT PART
 # trans_and_rg_data = getAndValidateData()
-# removeExcludedGenes() TODO implement
-# removeExcludedSamples() TODO implement
+# getSubsets() TODO implement
+# trans_and_rg_data = removeExcludedGenesAndNormalize(trans_and_rg_data) 
+# (maybe) removeExcludedSamples() TODO implement
+# (maybe) removeHighTPMGenes() TODO implement
+# removeRarelyExpressedGenes()
+#
 
 
 
