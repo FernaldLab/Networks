@@ -34,6 +34,24 @@ setUpForDevelopment = function() {
 }
 
 
+
+################################################################################
+# Data Accessor Methods
+#
+# These are intended to abstract away the specific column names in the readgroup
+# data table, so they can be changed without a major code refactor.
+################################################################################
+.getCondition = function(readgroup_data) {
+	# get experimental group (e.g. dominant, female)
+	return(readgroup_data$Condition)
+}
+
+
+
+
+
+
+
 ################################################################################
 # .matchSubjectNames
 #
@@ -108,13 +126,13 @@ getAndValidateData = function(transcription_tsv = NA, readgroup_tsv = NA) {
 	if (is.na(transcription_tsv)) {
 		transcription_tsv = .getFile('Please select the file with the TPM data (as a .tsv).');
 	}
-	cat('Loading transcription data from file \'', transcription_tsv, '\'\n');
+	.catlog('Loading transcription data from file \'', transcription_tsv, '\'\n', sep = '', importance = 1);
 	transcription_data = read.table(transcription_tsv, header = T, row.names = 1);
 	
 	if (is.na(transcription_tsv)) {
 		readgroup_tsv = .getFile('Please select the file with read group and behavior data.');
 	}
-	cat('Loading read group data from file \'', readgroup_tsv, '\'\n');
+	.catlog('Loading read group data from file \'', readgroup_tsv, '\'\n', sep = '', importance = 1);
 	readgroup_data = read.table(readgroup_tsv, header = T, row.names = 1, sep = '\t');
 
 	# this would be a great place to assert that transcription_data and readgroup_data are valid. BACKLOG
@@ -215,7 +233,10 @@ removeExcludedGenesAndNormalize = function(trans_and_rg_data,
 #		                     read group data and (optionally) behavior data
 #
 #	Optional:
-#	zlim              - The maximum number of zero values allowed
+#	max_fraction_zeroes            - Numeric; the maximum fraction of subjects that can have a zero
+#	                                 value (between 0 and 1)
+#	only_one_group_can_have_zeroes - Logical; should genes be removed if they have *any* zero-expression values
+#	                                 in more than one group?
 #
 # Returns:
 #	A list containing:
@@ -227,8 +248,40 @@ removeExcludedGenesAndNormalize = function(trans_and_rg_data,
 #	                     read group data and (optionally) behavior data
 ################################################################################
 removeRarelyExpressedGenes = function(trans_and_rg_data,
-                                      zlim = NA) {
-	stop('Unimplemented.')
+									  max_fraction_zeroes = 0.3,
+									  only_one_group_can_have_zeroes = FALSE) {
+	transcription_data = trans_and_rg_data$transcription_data
+	num_subjects = if (only_one_group_can_have_zeroes) {
+		floor(min(table(.getCondition(trans_and_rg_data$readgroup_data))))
+	} else {
+		ncol(trans_and_rg_data$transcription_data)
+	};
+	zlim = num_subjects * max_fraction_zeroes;
+
+	# get 'zs'
+	zero_counts = apply(transcription_data == 0, 1, sum);
+	
+	if (only_one_group_can_have_zeroes) {
+		#transcription_data_by_condition = sliceByCondition(transcription_data, .getCondition(trans_and_rg_data$readgroup_data))
+		## TODO implement sliceByCondition
+		# conditions_have_zeroes = list();
+		# for (i in 1:length(transcription_data_by_condition)) {
+		# 	hasZero = apply(transcription_data_by_condition[[i]] == 0, 1, sum) > 0;
+		# 	conditions_have_zeroes[[names(transcription_data_by_condition)[i]]] = hasZero;
+		# }
+		# conditions_have_zeroes = data.frame(conditions_have_zeroes);
+		# num_conditions_with_at_least_one_zero = apply(conditions_have_zeroes, 1, sum);
+		# rows_to_remove = which(zero_counts > zlim | num_conditions_with_at_least_one_zero > 0)
+	} else {
+		rows_to_remove = which(zero_counts > zlim);
+	}
+
+	if (length(rows_to_remove)) {
+		.catlog('Removing', length(rows_to_remove), 'genes with too many zero-expression values.\n', importance = 3)
+		trans_and_rg_data$transcription_data = transcription_data[-rows_to_remove, ];
+	} else {
+		.catlog('No genes have too many zero-expression values.\n', importance = 3)
+	}
 	return(trans_and_rg_data);
 }
 
