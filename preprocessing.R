@@ -180,6 +180,8 @@ getSubset = function() {
 #	genes_to_exclude  - A character vector containing names of genes to exclude
 #	log_addition      - The constant to add to each expression level before taking
 #                       the log (necessary because log(0) = -infinity)
+#                       Note that later, zeroes are removed, but not negative numbers,
+#                       so a value of 1 guarantees that all values are positive.
 #                       This is a TEST_PARAMETER
 #
 # Returns:
@@ -214,6 +216,46 @@ removeExcludedGenesAndNormalize = function(trans_and_rg_data,
 
 
 ################################################################################
+# .sliceByCondition
+# 
+# experimental_conditions = .getConditions(trans_and_rg_data$readgroup_data);
+# transcription_data_by_condition = sliceByCondition(
+# 	transcription_data = trans_and_rg_data$transcription_data,
+# 	condition_vector = experimental_conditions
+# )
+#
+# Description:
+# 	Separates the columns of a transcription data frame into separate data frames
+# 	for each condition.
+#
+# Arguments:
+#	Required:
+#	transcription_data - A data frame where each row is a gene and each column
+#	                     is a subject, giving the expression level of each gene
+#	condition_vector   - A vector of length ncol(transcription_data), giving the
+#	                     experimental condition for each group
+#
+#	Optional:
+#	None.
+#
+# Returns:
+#	A list where each entry is a data frame like transcription_data but where all
+#	columns are from the same experimental condition (the name of the entry)
+################################################################################
+.sliceByCondition = function(transcription_data, condition_vector) {
+	condition_names = names(table(condition_vector));
+	sliced_data = list();
+	for (condition in condition_names) {
+		indices = which(condition_vector == condition);
+		sliced_data[[condition]] = transcription_data[,indices]
+	}
+	return(sliced_data);
+}
+
+		
+
+
+################################################################################
 # removeRarelyExpressedGenes
 # 
 # trans_and_rg_data <- removeRarelyExpressedGenes(trans_and_rg_data=trans_and_rg_data)
@@ -233,10 +275,11 @@ removeExcludedGenesAndNormalize = function(trans_and_rg_data,
 #		                     read group data and (optionally) behavior data
 #
 #	Optional:
-#	max_fraction_zeroes            - Numeric; the maximum fraction of subjects that can have a zero
-#	                                 value (between 0 and 1)
-#	only_one_group_can_have_zeroes - Logical; should genes be removed if they have *any* zero-expression values
-#	                                 in more than one group?
+#	max_fraction_zeroes            - Numeric; the maximum fraction of subjects
+#	                                 that can have a zero value (between 0 and 1)
+#	                                 This is a TEST_PARAMETER
+#	only_one_group_can_have_zeroes - Logical; should genes be removed if they have
+#	                                 *any* zero-expression values in more than one group?
 #
 # Returns:
 #	A list containing:
@@ -251,28 +294,33 @@ removeRarelyExpressedGenes = function(trans_and_rg_data,
 									  max_fraction_zeroes = 0.3,
 									  only_one_group_can_have_zeroes = FALSE) {
 	transcription_data = trans_and_rg_data$transcription_data
-	num_subjects = if (only_one_group_can_have_zeroes) {
-		floor(min(table(.getCondition(trans_and_rg_data$readgroup_data))))
-	} else {
-		ncol(trans_and_rg_data$transcription_data)
-	};
-	zlim = num_subjects * max_fraction_zeroes;
-
-	# get 'zs'
 	zero_counts = apply(transcription_data == 0, 1, sum);
 	
 	if (only_one_group_can_have_zeroes) {
-		#transcription_data_by_condition = sliceByCondition(transcription_data, .getCondition(trans_and_rg_data$readgroup_data))
-		## TODO implement sliceByCondition
-		# conditions_have_zeroes = list();
-		# for (i in 1:length(transcription_data_by_condition)) {
-		# 	hasZero = apply(transcription_data_by_condition[[i]] == 0, 1, sum) > 0;
-		# 	conditions_have_zeroes[[names(transcription_data_by_condition)[i]]] = hasZero;
-		# }
-		# conditions_have_zeroes = data.frame(conditions_have_zeroes);
-		# num_conditions_with_at_least_one_zero = apply(conditions_have_zeroes, 1, sum);
-		# rows_to_remove = which(zero_counts > zlim | num_conditions_with_at_least_one_zero > 0)
+		min_num_subjects_per_condition = floor(min(table(.getCondition(trans_and_rg_data$readgroup_data))));
+		zlim = min_num_subjects_per_condition * max_fraction_zeroes;
+		# any gene with more than zlim zeroes will be eliminated
+
+		# generally, we're going to try to get rid of all genes that have any zeroes, unless
+		# ALL the zeroes are in the same condition (interesting!)
+		# this little block is to figure out for each gene whether there is more than one
+		# condition with at least one zero-expression value.
+		transcription_data_by_condition = .sliceByCondition(transcription_data, .getCondition(trans_and_rg_data$readgroup_data));
+		zeros_by_condition = list();
+		for (i in 1:length(transcription_data_by_condition)) {
+			has_at_least_one_zero = apply(transcription_data_by_condition[[i]] == 0, 1, sum) > 0;
+			zeros_by_condition[[names(transcription_data_by_condition)[i]]] = has_at_least_one_zero;
+		}
+		zeros_by_condition = data.frame(zeros_by_condition);
+		num_conditions_with_at_least_one_zero = apply(zeros_by_condition, 1, sum);
+		# this is now a vector giving for each gene, the number of conditions where the expression
+		# level for at least one subject in that condition was 0.
+
+		rows_to_remove = which(zero_counts > zlim | num_conditions_with_at_least_one_zero > 1)
 	} else {
+		num_subjects = ncol(trans_and_rg_data$transcription_data);
+		zlim = num_subjects * max_fraction_zeroes;
+
 		rows_to_remove = which(zero_counts > zlim);
 	}
 

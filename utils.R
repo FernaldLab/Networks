@@ -34,5 +34,5 @@ setVerbosity = function(threshold = 5) {
 		}
 	}
 }
-
+setVerbosity();
 
