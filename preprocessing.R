@@ -2,6 +2,8 @@
 # set up options
 init = function() {
 	options(stringsAsFactors=F);
+	source('utils.R')
+	source('preProcess_interactive.R')
 }
 init();
 
@@ -26,7 +28,7 @@ init();
 #	None.
 ################################################################################
 setUpForDevelopment = function() {
-	source('utils.R');
+	init();
 	trans_and_rg_data <<- getAndValidateData(transcription_tsv = 'test_data/transcription_data.tsv',
 	                                         readgroup_tsv = 'test_data/readgroupsdata.tsv');
 	#transcription_data <<- trans_and_rg_data$transcription_data;
@@ -202,9 +204,11 @@ removeExcludedGenesAndNormalize = function(trans_and_rg_data,
 	if (length(genes_to_exclude)) {
 		rowsToRemove = match(genes_to_exclude, rownames(transcription_data));
 		transcription_data = transcription_data[-rowsToRemove,];
+		.catlog('Removed ', length(genes_to_exclude), ' user-provided genes.\n' , sep = '', importance = 3)
 	}
 
 	# remove genes with zero variance
+	.catlog('Removed ', sum(!(apply(transcription_data, 1, var) > 0)), ' genes with zero variance.\n' , sep = '', importance = 3)
 	transcription_data = transcription_data[apply(transcription_data, 1, var) > 0,];
 
 	# take log of gene expression
@@ -280,6 +284,7 @@ removeExcludedGenesAndNormalize = function(trans_and_rg_data,
 #	                                 This is a TEST_PARAMETER
 #	only_one_group_can_have_zeroes - Logical; should genes be removed if they have
 #	                                 *any* zero-expression values in more than one group?
+#	                                 This is a TEST_PARAMETER
 #
 # Returns:
 #	A list containing:
@@ -336,6 +341,221 @@ removeRarelyExpressedGenes = function(trans_and_rg_data,
 
 
 ################################################################################
+# removeLowVarianceGenes
+# 
+# trans_and_rg_data <- removeLowVarianceGenes(trans_and_rg_data = trans_and_rg_data)
+#
+# Description:
+# 	Removes the genes with coefficient of variance less than the threshold.
+#
+# Arguments:
+#	Required:
+#	trans_and_rg_data - A list containing:
+#		transcription_data - A data frame where each row is a gene and each column
+#		                     is a subject, giving the log transcripts per million (TPM)
+#		                     expression level of each gene
+#		readgroup_data     - A data frame with rownames equal to the column
+#		                     names of transcription_data, containing columns with
+#		                     read group data and (optionally) behavior data
+#
+#	Optional:
+#		make_plot          - Logical; should the distribution of coefficients of
+#		                     variance be plotted, and the summaries output to the
+#		                     console?
+#		cv_threshold       - Numeric; the minimum coefficient of variance required
+#		                     to remain in the dataset. Genes below this are excluded.
+#
+# Returns:
+#	A list containing:
+#	transcription_data - A data frame where each row is a gene and each column
+#	                     is a subject, giving the log transcripts per million (TPM)
+#	                     expression level of each gene
+#	readgroup_data     - A data frame with rownames equal to the column
+#	                     names of transcription_data, containing columns with
+#	                     read group data and (optionally) behavior data
+################################################################################
+removeLowVarianceGenes = function(trans_and_rg_data,
+								  make_plot = TRUE,
+								  cv_threshold = 0.01
+) {
+	transcription_data = trans_and_rg_data$transcription_data;
+	
+	coefficients_of_variance = apply(transcription_data, 1, .coefficientOfVariance);
+	if (make_plot) {
+		dev.off(); 
+		par(mfrow=c(1,2));
+		hist(coefficients_of_variance);
+		summary(coefficients_of_variance);
+	}
+
+	cvcut = quantile(coefficients_of_variance, cv_threshold);
+	.catlog('Removed ', sum(!(coefficients_of_variance > cvcut)), ' genes with coefficient of variance',
+	        ' below threshold ', cv_threshold, '.\n' , sep = '', importance = 3)
+	transcription_data = transcription_data[coefficients_of_variance > cvcut,];
+	if (make_plot) {
+		new_cv = apply(transcription_data, 1, .coefficientOfVariance);
+		hist(new_cv);
+		summary(new_cv);
+	}
+	trans_and_rg_data$transcription_data <- transcription_data;
+	return(trans_and_rg_data);
+}
+
+
+################################################################################
+# runPreprocessInteractive
+# 
+# preprocess_out = runPreprocessInteractive(trans_and_rg_data=trans_and_rg_data)
+#
+# Description:
+# 	Runs the interactive preprocessing script found in preProcess_interactive.R
+#
+# Arguments:
+#	Required:
+#	trans_and_rg_data - A list containing:
+#		transcription_data - A data frame where each row is a gene and each column
+#		                     is a subject, giving the log transcripts per million (TPM)
+#		                     expression level of each gene
+#		readgroup_data     - A data frame with rownames equal to the column
+#		                     names of transcription_data, containing columns with
+#		                     read group data and (optionally) behavior data
+#
+#	Optional:
+#		None.
+#		BACKLOG the parameters here should definitely be adjustable at this juncture.
+#		also, they are all definitely TEST_PARAMETERS
+#
+# Returns: TODO better description
+# 	A list including:
+# 		data_removedOutlierSample 
+# 		data_Qnorm
+################################################################################
+runPreprocessInteractive = function(trans_and_rg_data) {
+	warning('It is totally unclear what this code is supposed to do.'); # TODO
+	preprocess_out = preProcess(datIN = trans_and_rg_data$transcription_data,
+	                    removeOutlierProbes=T, #these are probably all TEST_PARAMETERS.
+						deviate=2.5,
+						removeTooManyNAs=T,
+						probe_thresh=NULL,
+						sample_thresh=NULL,
+						removeOutlierSamples=T,
+						IACthresh=2,
+						Qnorm=T
+	);
+	return(preprocess_out);
+}
+
+
+
+
+################################################################################
+# .computeAndPlotFactorEffectsOnMeanExpr
+#
+# Description:
+# 	helper function for makeFactorEffectsPlots.
+# 	TODO write description of plots produced
+#
+# Arguments:
+#   TODO write this.
+#
+# Returns:
+# 	None.
+################################################################################
+.computeAndPlotFactorEffectsOnMeanExpr = function (TPM, INFO, SUBSET, INFOcols, MAIN='', ...) {
+	DAT = TPM[, SUBSET];
+	INFO = INFO[SUBSET, ];
+	DAT = DAT[apply(DAT,1,var) > 0, ];
+	meanexpr = apply(DAT, 2, mean, na.rm=T);
+	factors = paste0(paste0('factor(',paste0('INFO[,',INFOcols,']' ),')' ), collapse='+');
+	lmformula = paste0('meanexpr~', factors);print(lmformula)
+	pvals = as.vector(na.omit(anova(lm(as.formula(lmformula)))$"Pr(>F)"));
+	print(anova(lm(as.formula(lmformula))));
+	names(pvals) = names(INFO)[INFOcols];
+	barplot(-log10(pvals), ylab='-log10(pval)',main=paste(MAIN,' (n=',ncol(DAT),')',sep=''), ...);
+	abline(h=c(-log10(.05), -log10(.01)), col='red');
+}
+
+
+
+################################################################################
+# makeFactorEffectsPlots
+# 
+# makeFactorEffectsPlots(trans_and_rg_data=trans_and_rg_data, preprocess_out=preprocess_out)
+#
+# Description:
+# 	No side effects; returns nothing.
+# 	TODO write description of plots produced
+# 	TODO refactor readgroup_data$* to use new getters
+#
+# Arguments:
+#	Required:
+#	trans_and_rg_data - A list containing:
+#		transcription_data - A data frame where each row is a gene and each column
+#		                     is a subject, giving the log transcripts per million (TPM)
+#		                     expression level of each gene
+#		readgroup_data     - A data frame with rownames equal to the column
+#		                     names of transcription_data, containing columns with
+#		                     read group data and (optionally) behavior data
+#	preprocess_out         - The value returned by runPreprocessInteractive
+#
+#	Optional:
+#		TODO unknown.
+#
+# Returns:
+# 	None.
+################################################################################
+makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
+	transcription_data = trans_and_rg_data$transcription_data;
+	readgroup_data = trans_and_rg_data$readgroup_data;
+	
+
+	dev.off();
+	par(mfrow=c(3,3));
+
+	# TODO make this a parameter
+	factname_groups = list(c('Condition','Tank','Lib.constr.date','RNAseq.date'),
+	                       c('Condition','Tank','LibSeq'),
+						   c('Condition','LibSeqTank')
+	);
+
+	# 1. plot for unfilitered data
+	num_subjects = ncol(transcription_data);
+	
+	for (facts_to_plot in factname_groups) {
+		readgroup_columns = match(facts_to_plot, names(readgroup_data));
+		.computeAndPlotFactorEffectsOnMeanExpr(TPM = transcription_data,
+											   INFO0 = readgroup_data,
+											   subset = 1:num_subjects,
+											   INFOcols = readgroup_columns
+		);
+	}
+
+	# 2. plot for preprocess()ed data
+	preNormPostOutliersDAT = preprocess_out$data_removedOutlierSamples;
+	preNormPostOutliersINFO = readgroup_data[match(names(preprocess_out$data_removedOutlierSamples), rownames(readgroup_data)), ];
+	num_subjects = ncol(preNormPostOutliersDAT);
+	for (facts_to_plot in factname_groups) {
+		readgroup_columns = match(facts_to_plot, names(preNormPostOutliersINFO));
+		.computeAndPlotFactorEffectsOnMeanExpr(TPM = preNormPostOutliersDAT,
+											   INFO0 = preNormPostOutliersINFO,
+											   subset = 1:num_subjects,
+											   INFOcols = readgroup_columns
+		);
+	}
+
+	# 3. print some things
+	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$Lib.constr.date)))
+	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$RNAseq.date)))
+	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$Tank)))
+	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$LibSeq)))
+	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$LibSeqTank)))
+
+	# 4. TODO there are still 3 empty plots in the plotting window!!!
+}
+
+
+
+################################################################################
 ################################################################################
 ################################################################################
 ################################################################################
@@ -348,8 +568,23 @@ removeRarelyExpressedGenes = function(trans_and_rg_data,
 # (maybe) removeExcludedSamples() TODO implement
 # (maybe) removeHighTPMGenes() TODO implement
 # removeRarelyExpressedGenes()
+# BACKLOG sanitycheck() with prostaglandin
 #
-
+runPipeline = function() {
+	trans_and_rg_data = getAndValidateData();
+	# BACKLOG getSubsets() - only female, male, etc.
+	trans_and_rg_data <- removeExcludedGenesAndNormalize(trans_and_rg_data = trans_and_rg_data);
+	# BACKLOG remove excluded samples, or high TPM genes
+    trans_and_rg_data <- removeRarelyExpressedGenes(
+        trans_and_rg_data = trans_and_rg_data,
+        max_fraction_zeroes = 0,
+        only_one_group_can_have_zeroes = TRUE
+    );
+	trans_and_rg_data <- removeLowVarianceGenes(trans_and_rg_data=trans_and_rg_data);
+	# BACKLOG sanity check with prostaglandin
+	preprocess_out <- runPreprocessInteractive(trans_and_rg_data=trans_and_rg_data);
+	makeFactorEffectsPlots(trans_and_rg_data=trans_and_rg_data, preprocess_out=preprocess_out);
+}
 
 
 

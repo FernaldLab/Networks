@@ -21,6 +21,12 @@
 }
 
 
+.coefficientOfVariance = function(x) {
+	stdev = sd(as.numeric(x), na.rm=TRUE);
+	avg = mean(as.numeric(x), na.rm=TRUE);
+	return(stdev / avg);
+}
+
 
 # catlog cats a progress message
 # defined here so that ALL messages can be redirected to an error/log file, or be

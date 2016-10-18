@@ -8,10 +8,18 @@
 
 
 
-testPreprocessing = function() {
+testPreprocessing = function(verbosity = 5) {
 	source('preprocessing.R');
 	setUpForDevelopment();
-	trans_and_rg_data <<- removeExcludedGenes(trans_and_rg_data=trans_and_rg_data);
+	setVerbosity(verbosity);
+	trans_and_rg_data <- removeExcludedGenesAndNormalize(trans_and_rg_data=trans_and_rg_data);
+	trans_and_rg_data <- removeRarelyExpressedGenes(
+		trans_and_rg_data = trans_and_rg_data,
+		max_fraction_zeroes = 0,
+		only_one_group_can_have_zeroes = TRUE
+	);
+	trans_and_rg_data <<- trans_and_rg_data;
+	setVerbosity(); # unsilence printing
 }
 
 testZeroRemoval = function() {
