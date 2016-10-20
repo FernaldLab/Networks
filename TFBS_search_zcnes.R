@@ -28,15 +28,11 @@ names(zGRseqs) = as.character(mcols(zGR)[,1]);
 
 # search for one transcription factor at a time to benchmark 
 #  use androgen receptor ids for testing
-ARids = c('MA0007.1','MA0007.2');
-min.score= '90%'
+ARid = 'MA0007.2';
+ARpwm = toPWM(getMatrixByID('JASPAR2014', ARid));
 
 system.time( { 
-  ARhits1 = searchSeq(ARids[1], zGRseqs, min.score=min.score)
+  ARhits = searchSeq(ARpwm, zGRseqs, min.score='90%')
 } )
 
-system.time( { 
-  ARhits2 = searchSeq(ARids[2], zGRseqs, min.score=min.score)
-} )
 
-# 
