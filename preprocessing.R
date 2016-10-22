@@ -382,9 +382,9 @@ removeLowVarianceGenes = function(trans_and_rg_data,
 	
 	coefficients_of_variance = apply(transcription_data, 1, .coefficientOfVariance);
 	if (make_plot) {
-		dev.off(); 
+		#dev.off(); 
 		par(mfrow=c(1,2));
-		hist(coefficients_of_variance);
+		hist(coefficients_of_variance, xlab = 'Coefficient of variance', main = 'Before cut');
 		summary(coefficients_of_variance);
 	}
 
@@ -394,7 +394,7 @@ removeLowVarianceGenes = function(trans_and_rg_data,
 	transcription_data = transcription_data[coefficients_of_variance > cvcut,];
 	if (make_plot) {
 		new_cv = apply(transcription_data, 1, .coefficientOfVariance);
-		hist(new_cv);
+		hist(new_cv, xlab = 'Coefficient of variance', main = 'After cut');
 		summary(new_cv);
 	}
 	trans_and_rg_data$transcription_data <- transcription_data;

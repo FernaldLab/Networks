@@ -22,7 +22,7 @@ testPreprocessing = function(verbosity = 5) {
 	setVerbosity(); # unsilence printing
 }
 
-testZeroRemoval = function() {
+test_removeRarelyExpressedGenes = function() {
 	source('preprocessing.R');
 	setUpForDevelopment();
 	setVerbosity(-1); # silence printing
@@ -54,3 +54,4 @@ testZeroRemoval = function() {
 
 	setVerbosity(); # unsilence printing
 }
+
