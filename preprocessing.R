@@ -2,8 +2,16 @@
 # set up options
 init = function() {
 	options(stringsAsFactors=F);
-	source('utils.R')
-	source('preProcess_interactive.R')
+
+	# fail gracefully if the user failed to setwd()
+	tryCatch({
+		source('utils.R');
+		source('preProcess_interactive.R');
+	},
+	warning = function(w) {
+		stop(paste('Some dependencies of preprocessing.R could not be located. Please set the',
+		           'working directory to be the directory containing the code files (using setwd()).'));
+	});
 }
 init();
 
@@ -126,13 +134,13 @@ setUpForDevelopment = function() {
 ################################################################################
 getAndValidateData = function(transcription_tsv = NA, readgroup_tsv = NA) {
 	if (is.na(transcription_tsv)) {
-		transcription_tsv = .getFile('Please select the file with the TPM data (as a .tsv).');
+		transcription_tsv = .getFile('Please select the file with the TPM data (as a .tsv).\n');
 	}
 	.catlog('Loading transcription data from file \'', transcription_tsv, '\'\n', sep = '', importance = 1);
 	transcription_data = read.table(transcription_tsv, header = T, row.names = 1);
 	
-	if (is.na(transcription_tsv)) {
-		readgroup_tsv = .getFile('Please select the file with read group and behavior data.');
+	if (is.na(readgroup_tsv)) {
+		readgroup_tsv = .getFile('Please select the file with read group and behavior data.\n');
 	}
 	.catlog('Loading read group data from file \'', readgroup_tsv, '\'\n', sep = '', importance = 1);
 	readgroup_data = read.table(readgroup_tsv, header = T, row.names = 1, sep = '\t');
@@ -459,6 +467,7 @@ runPreprocessInteractive = function(trans_and_rg_data,
 						IACthresh=IACthresh,
 						Qnorm=Qnorm
 	);
+	# TODO this is painfully slow.
 	return(preprocess_out);
 }
 
@@ -569,7 +578,7 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$LibSeqTank)));
 
 	# 4. TODO there are still 3 empty plots in the plotting window!!!
-	warning('There are three empty spots, still in this plotting window. You\'re using an incomplete function!!');
+	warning('There are three empty spots still in this plotting window. You\'re using an incomplete function!!');
 }
 
 
@@ -580,15 +589,6 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 ################################################################################
 ################################################################################
 ################################################################################
-# HERE IS THE SCRIPT PART
-# trans_and_rg_data = getAndValidateData()
-# getSubsets() TODO implement
-# trans_and_rg_data = removeExcludedGenesAndNormalize(trans_and_rg_data) 
-# (maybe) removeExcludedSamples() TODO implement
-# (maybe) removeHighTPMGenes() TODO implement
-# removeRarelyExpressedGenes()
-# BACKLOG sanitycheck() with prostaglandin
-#
 runPipeline = function() {
 	trans_and_rg_data = getAndValidateData();
 	# BACKLOG getSubsets() - only female, male, etc.

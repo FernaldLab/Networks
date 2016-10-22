@@ -1,6 +1,8 @@
 # Returns a file name selected interactively.
 .getFile = function(prompt) {
 	cat(prompt);
+	# TODO BUG : the prompt doesn't get cat-ed in time for the user to see it before
+	# the popup happens. In general, this process is a hot mess.
 	return(file.choose());
 }
 
