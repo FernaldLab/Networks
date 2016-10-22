@@ -2,11 +2,13 @@
 # set up options
 init = function() {
 	options(stringsAsFactors=F);
+	library(impute); # TODO ask AUSTIN - what happens if this isn't installed?
 
 	# fail gracefully if the user failed to setwd()
 	tryCatch({
 		source('utils.R');
 		source('preProcess_interactive.R');
+		source('ComBat.R');
 	},
 	warning = function(w) {
 		stop(paste('Some dependencies of preprocessing.R could not be located. Please set the',
@@ -14,6 +16,8 @@ init = function() {
 	});
 }
 init();
+
+# BACKLOG: write a function that's the equivalent of --help
 
 
 ################################################################################
@@ -483,7 +487,16 @@ runPreprocessInteractive = function(trans_and_rg_data,
 # 	TODO write description of plots produced
 #
 # Arguments:
-#   TODO write this.
+# 	Required:
+# 	TPM       - the transcription_data
+# 	INFO      - a readgroup_info dataframe corresponding to TPM
+# 	SUBSET    - numeric; which subjects should be considered? (vector of indices)
+# 	INFOcols  - numeric; column indices of INFO that give the factors whose effects
+# 	on mean expression should be considered.
+# 	
+# 	Optional:
+# 	MAIN      - the title of the plot
+# 	...       - any graphical parameters, to be passed on to the barplot function
 #
 # Returns:
 # 	None.
@@ -502,6 +515,58 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	abline(h=c(-log10(.05), -log10(.01)), col='red');
 }
 
+
+
+################################################################################
+# .runCombat
+# 
+# transcription_data = .runComBat(TODO parameters something something)
+#
+# Description:
+# 	Runs the ComBat program from ComBat.R
+#
+# Arguments:
+# 	TODO figure this out
+#
+# Returns: TODO better description - ask AUSTIN.
+# 	I have literally no idea TODO
+################################################################################
+.runComBat = function (DAT, INFO, BATCHcol, COVcol=NULL, impute=F, ...) {
+	if (impute) { DAT = as.data.frame(impute.knn(as.matrix(DAT))$data) }
+	# format expression data and write to file
+	datToWrite = as.data.frame(DAT);
+	datToWrite = as.data.frame(cbind(gene=rownames(datToWrite), datToWrite));
+	write.table(datToWrite, file='datForComBat.txt', quote=F, sep='\t', row.names=F);
+	
+	if (is.null(COVcol)) {
+		inds = c(BATCHcol);
+	} else if (is.numeric(COVcol)) {
+		inds = c(BATCHcol, COVcol);
+	} else {
+		stop('arg COVcol must be NULL or numeric');
+	}
+	print(inds);
+	infoToWrite = cbind(gsub('-', '.', rownames(INFO)), INFO[, inds]);
+	infoToWrite = as.data.frame(cbind(names(DAT), infoToWrite));
+	names(infoToWrite)[1:3] = c('Array name', 'Sample name', 'Batch');
+	if (!is.null(COVcol) & is.numeric(COVcol)) {
+		names(infoToWrite)[4:ncol(infoToWrite)] = paste('Covariate ', 1:length(COVcol), sep='');	
+	}
+	write.table(infoToWrite, file='infoForComBat.txt', quote=F, sep='\t', row.names=F);
+	
+	combatout = ComBat(expression_xls='datForComBat.txt', 
+	                   sample_info_file='infoForComBat.txt',
+					   filter=F,
+					   write=F,
+					   skip=1,
+					   ...
+	);
+	test_combatout <<- combatout;
+	if (is.character(combatout)) {
+		stop(combatout);
+	}
+	return(combatout[,-1]);
+}
 
 
 ################################################################################
@@ -536,7 +601,7 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 	readgroup_data = trans_and_rg_data$readgroup_data;
 	
 
-	dev.off();
+	#dev.off(); TODO resolve this - dev.off() should belong with whoever dev.on()ed
 	par(mfrow=c(3,3));
 
 	# TODO make this a parameter
@@ -553,7 +618,8 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 		.computeAndPlotFactorEffectsOnMeanExpr(TPM = transcription_data,
 											   INFO = readgroup_data,
 											   SUBSET = 1:num_subjects,
-											   INFOcols = readgroup_columns
+											   INFOcols = readgroup_columns,
+											   MAIN = 'All subjects'
 		);
 	}
 
@@ -566,7 +632,8 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 		.computeAndPlotFactorEffectsOnMeanExpr(TPM = preNormPostOutliersDAT,
 											   INFO = preNormPostOutliersINFO,
 											   SUBSET = 1:num_subjects,
-											   INFOcols = readgroup_columns
+											   INFOcols = readgroup_columns,
+											   MAIN = 'After preProcess() interactive script'
 		);
 	}
 
@@ -579,6 +646,34 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 
 	# 4. TODO there are still 3 empty plots in the plotting window!!!
 	warning('There are three empty spots still in this plotting window. You\'re using an incomplete function!!');
+
+
+	combat_outputs = list(preprocessed=preprocess_out$data_Qnorm);
+	new_readgroup_data = preNormPostOutliersINFO; # TODO refactor
+	column_indices_for_plot = match(c('Condition','Tank','Lib.constr.date','RNAseq.date'), names(new_readgroup_data));
+	combat_factors_sequence = c('Lib.constr.date', 'Tank', 'RNAseq.date');
+	covar_i = match('Condition', names(new_readgroup_data));
+	for (factor in combat_factors_sequence) {
+		new_transcription_data = combat_outputs[length(combat_outputs)];
+		factor_i = match(factor, names(new_readgroup_data));
+		out = .runComBat(DAT = new_transcription_data,
+		                 INFO = new_readgroup_data,
+						 BATCHcol = factor_i,
+						 COVcol = covar_i,
+						 impute = F, # TODO in original script this is T on first iteration and F after - why?
+						 prior.plots = F
+		);
+		.computeAndPlotFactorEffectsOnMeanExpr(TPM = out,
+											   INFO = new_readgroup_data,
+											   SUBSET = 1:ncol(out),
+											   INFOcols = column_indices_for_plot,
+											   MAIN = paste('After ComBat on', factor)
+		);
+		combat_outputs[factor] = out;
+	}
+
+
+
 }
 
 
