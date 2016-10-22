@@ -421,26 +421,43 @@ removeLowVarianceGenes = function(trans_and_rg_data,
 #		                     read group data and (optionally) behavior data
 #
 #	Optional:
-#		None.
-#		BACKLOG the parameters here should definitely be adjustable at this juncture.
-#		also, they are all definitely TEST_PARAMETERS
+#		removeOutlierProbes   - TODO ask Austin
+#		deviate               - TODO ask Austin
+#		removeTooManyNAs      - TODO ask Austin
+#		probe_thresh          - TODO ask Austin
+#		sample_thresh         - TODO ask Austin
+#		removeOutlierSamples  - TODO ask Austin
+#		IACthresh             - TODO ask Austin
+#		Qnorm                 - TODO ask Austin
+#		All of these are TEST_PARAMETERS
 #
-# Returns: TODO better description
+# Returns: TODO better description - ask AUSTIN.
 # 	A list including:
+# 		outlierProbesOUTPUT, checkMissingDataOUTPUT, outlierSamplesOUTPUT; the outputs
+# 			of several intermediate steps
 # 		data_removedOutlierSample 
 # 		data_Qnorm
+# 		and others that appear not to be used.
 ################################################################################
-runPreprocessInteractive = function(trans_and_rg_data) {
-	warning('It is totally unclear what this code is supposed to do.'); # TODO
+runPreprocessInteractive = function(trans_and_rg_data,
+	                                removeOutlierProbes=T,
+						            deviate=2.5,
+						            removeTooManyNAs=T,
+						            probe_thresh=NULL,
+						            sample_thresh=NULL,
+						            removeOutlierSamples=T,
+						            IACthresh=2,
+						            Qnorm=T
+) {
 	preprocess_out = preProcess(datIN = trans_and_rg_data$transcription_data,
-	                    removeOutlierProbes=T, #these are probably all TEST_PARAMETERS.
-						deviate=2.5,
-						removeTooManyNAs=T,
-						probe_thresh=NULL,
-						sample_thresh=NULL,
-						removeOutlierSamples=T,
-						IACthresh=2,
-						Qnorm=T
+	                    removeOutlierProbes=removeOutlierProbes,
+						deviate=deviate,
+						removeTooManyNAs=removeTooManyNAs,
+						probe_thresh=probe_thresh,
+						sample_thresh=sample_thresh,
+						removeOutlierSamples=removeOutlierSamples,
+						IACthresh=IACthresh,
+						Qnorm=Qnorm
 	);
 	return(preprocess_out);
 }
@@ -452,7 +469,8 @@ runPreprocessInteractive = function(trans_and_rg_data) {
 # .computeAndPlotFactorEffectsOnMeanExpr
 #
 # Description:
-# 	helper function for makeFactorEffectsPlots.
+# 	helper function for makeFactorEffectsPlots. Directly copy/pasted from
+# 	Austin's old code file; if it works, do we really care what it does?
 # 	TODO write description of plots produced
 #
 # Arguments:
@@ -524,8 +542,8 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 	for (facts_to_plot in factname_groups) {
 		readgroup_columns = match(facts_to_plot, names(readgroup_data));
 		.computeAndPlotFactorEffectsOnMeanExpr(TPM = transcription_data,
-											   INFO0 = readgroup_data,
-											   subset = 1:num_subjects,
+											   INFO = readgroup_data,
+											   SUBSET = 1:num_subjects,
 											   INFOcols = readgroup_columns
 		);
 	}
@@ -537,20 +555,21 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 	for (facts_to_plot in factname_groups) {
 		readgroup_columns = match(facts_to_plot, names(preNormPostOutliersINFO));
 		.computeAndPlotFactorEffectsOnMeanExpr(TPM = preNormPostOutliersDAT,
-											   INFO0 = preNormPostOutliersINFO,
-											   subset = 1:num_subjects,
+											   INFO = preNormPostOutliersINFO,
+											   SUBSET = 1:num_subjects,
 											   INFOcols = readgroup_columns
 		);
 	}
 
 	# 3. print some things
-	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$Lib.constr.date)))
-	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$RNAseq.date)))
-	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$Tank)))
-	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$LibSeq)))
-	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$LibSeqTank)))
+	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$Lib.constr.date)));
+	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$RNAseq.date)));
+	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$Tank)));
+	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$LibSeq)));
+	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$LibSeqTank)));
 
 	# 4. TODO there are still 3 empty plots in the plotting window!!!
+	warning('There are three empty spots, still in this plotting window. You\'re using an incomplete function!!');
 }
 
 
