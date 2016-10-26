@@ -1,0 +1,17 @@
+combat_test <-
+structure(list(dat = structure(list(`subject 1` = c(2, 3, 4, 
+3, 4, 5, 6), `subject 2` = c(2, 3, 4, 3, 4, 5, 6), `subject 3` = c(2, 
+3, 4, 3, 4, 5, 6), `subject 4` = c(2, 4, 6, 0, 4, 5, 8), `subject 5` = c(2, 
+4, 6, 0, 4, 5, 8), `subject 6` = c(4, 5, 6, 0, 1, 5, 6), `subject 7` = c(4, 
+5, 6, 0, 1, 5, 6), `subject 8` = c(4, 6, 8, -3, 1, 5, 8), `subject 9` = c(4, 
+6, 8, -3, 1, 5, 8), `subject 10` = c(4, 6, 8, -3, 1, 5, 8)), .Names = c("subject 1", 
+"subject 2", "subject 3", "subject 4", "subject 5", "subject 6", 
+"subject 7", "subject 8", "subject 9", "subject 10"), row.names = c("gene 1", 
+"gene 2", "gene 3", "gene 4", "gene 5", "gene 6", "gene 7"), class = "data.frame"), 
+    factors = structure(c("first", "first", "first", "first", 
+    "first", "second", "second", "second", "second", "second", 
+    "1", "1", "1", "2", "2", "1", "1", "2", "2", "2"), .Dim = c(10L, 
+    2L), .Dimnames = list(c("subject 1", "subject 2", "subject 3", 
+    "subject 4", "subject 5", "subject 6", "subject 7", "subject 8", 
+    "subject 9", "subject 10"), c("batch", "condition")))), .Names = c("dat", 
+"factors"))

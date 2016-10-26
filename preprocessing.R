@@ -2,7 +2,32 @@
 # set up options
 init = function() {
 	options(stringsAsFactors=F);
-	library(impute); # TODO ask AUSTIN - what happens if this isn't installed?
+
+	# try to source libraries.
+	tryCatch({
+		library(impute);
+	},
+	error = function(e) {
+		warning(paste('Some dependencies of preprocessing.R could not be located. Please install',
+		              'the required libraries.'));
+		stop(e);
+	});
+
+	# try to install ComBat if necessary
+	#tryCatch({
+	#	stopifnot(is.function(ComBat));
+	#},
+	#error = function(e) {
+	#	# try to install sva
+	#	cat('Installing "sva" package from BioConductor');
+	#	tryCatch({
+	#		biocLite("sva");
+	#	},
+	#	error = function(e) {
+	#		source("https://bioconductor.org/biocLite.R");
+	#		biocLite("sva");
+	#	});
+	#});
 
 	# fail gracefully if the user failed to setwd()
 	tryCatch({
@@ -60,6 +85,14 @@ setUpForDevelopment = function() {
 	return(readgroup_data$Condition)
 }
 
+.getReadgroupColumn = function(readgroup_data, colname) {
+	if (colname %in% colnames(readgroup_data)) {
+		return(readgroup_data[,colname])
+	}
+	else {
+		stop(paste('No column', colname, 'in read group matrix.'));
+	}
+}
 
 
 
@@ -433,43 +466,45 @@ removeLowVarianceGenes = function(trans_and_rg_data,
 #		                     read group data and (optionally) behavior data
 #
 #	Optional:
-#		removeOutlierProbes   - TODO ask Austin
-#		deviate               - TODO ask Austin
-#		removeTooManyNAs      - TODO ask Austin
-#		probe_thresh          - TODO ask Austin
-#		sample_thresh         - TODO ask Austin
-#		removeOutlierSamples  - TODO ask Austin
-#		IACthresh             - TODO ask Austin
-#		Qnorm                 - TODO ask Austin
-#		All of these are TEST_PARAMETERS
+#		deviate               - Numeric; when removing outlier "probes"/tpm values, what is the maximum number
+#		                        of standard deviations from the mean to allow?
+#		                        TEST_PARAMETER: try 2, 2.5, 3
+#		probe_thresh          - Numeric; how many probes/tpm values can be NA for a given gene? NULL uses the
+#		                        default value.
+#		                        TEST_PARAMETER: try 0, 1/3.
+#		sample_thresh         - Numeric; how many probes/tpm values can be NA for a given subject? NULL uses the
+#		                        default value.
+#		                        TEST_PARAMETER: try 0, 1/3.
+#		                        BACKLOG try allowing NAs iff they are all from the same condition, similar to
+#		                        the function for removing zeroes.
+#		IACthresh             - Numeric; when removing outlier samples, what is the maximum number of standard
+#		                        deviations away from the mean that you are willing to tolerate? (IAC means
+#		                        inter-subject correlation)
+#								TEST_PARAMETER: this is the interactive part of the function; not necessarily a hard threshold.
+#								Should be no greater than 3; after 3, don't even ask a human. Test 2 and 2.5 as well.
+#								BACKLOG Get the mean IAC - want it to be >= .97.
 #
-# Returns: TODO better description - ask AUSTIN.
+# Returns:
 # 	A list including:
-# 		outlierProbesOUTPUT, checkMissingDataOUTPUT, outlierSamplesOUTPUT; the outputs
-# 			of several intermediate steps
-# 		data_removedOutlierSample 
-# 		data_Qnorm
-# 		and others that appear not to be used.
+# 		data_removedOutlierSamples  - transcription_data but with outlier samples removed
+# 		data_Qnorm                  - transctiption_data Qnormalized (end of this step's pipeline)
+# 		and other entries that are irrelevant.
 ################################################################################
 runPreprocessInteractive = function(trans_and_rg_data,
-	                                removeOutlierProbes=T,
 						            deviate=2.5,
-						            removeTooManyNAs=T,
 						            probe_thresh=NULL,
 						            sample_thresh=NULL,
-						            removeOutlierSamples=T,
-						            IACthresh=2,
-						            Qnorm=T
+						            IACthresh=2
 ) {
 	preprocess_out = preProcess(datIN = trans_and_rg_data$transcription_data,
-	                    removeOutlierProbes=removeOutlierProbes,
+	                    removeOutlierProbes=TRUE,
 						deviate=deviate,
-						removeTooManyNAs=removeTooManyNAs,
+						removeTooManyNAs=TRUE,
 						probe_thresh=probe_thresh,
 						sample_thresh=sample_thresh,
-						removeOutlierSamples=removeOutlierSamples,
+						removeOutlierSamples=TRUE,
 						IACthresh=IACthresh,
-						Qnorm=Qnorm
+						Qnorm=TRUE
 	);
 	# TODO this is painfully slow.
 	return(preprocess_out);
@@ -518,7 +553,7 @@ runPreprocessInteractive = function(trans_and_rg_data,
 
 
 ################################################################################
-# .runCombat
+# .runComBat
 # 
 # transcription_data = .runComBat(TODO parameters something something)
 #
@@ -530,42 +565,49 @@ runPreprocessInteractive = function(trans_and_rg_data,
 #
 # Returns: TODO better description - ask AUSTIN.
 # 	I have literally no idea TODO
+# 	Only thing to test here is different combinations of variables to correct for.
 ################################################################################
-.runComBat = function (DAT, INFO, BATCHcol, COVcol=NULL, impute=F, ...) {
-	if (impute) { DAT = as.data.frame(impute.knn(as.matrix(DAT))$data) }
+.runComBat = function(
+	transcription_data,
+	readgroup_data,
+	batch_factor, # name of a column in readgroup_data
+	condition_matrix, # nsubjects x ncovariates (usually 1)
+	impute,
+	prior.plots = FALSE,
+	...
+) {
+	# TODO AUSTIN maybe impute, maybe not.
+	
 	# format expression data and write to file
-	datToWrite = as.data.frame(DAT);
-	datToWrite = as.data.frame(cbind(gene=rownames(datToWrite), datToWrite));
-	write.table(datToWrite, file='datForComBat.txt', quote=F, sep='\t', row.names=F);
-	
-	if (is.null(COVcol)) {
-		inds = c(BATCHcol);
-	} else if (is.numeric(COVcol)) {
-		inds = c(BATCHcol, COVcol);
-	} else {
-		stop('arg COVcol must be NULL or numeric');
+	transcription_data = cbind(gene = rownames(transcription_data), transcription_data);
+	write.table(transcription_data, file = '.transcriptionDataForComBat.tsv', quote = FALSE, sep = '\t', row.names = FALSE);
+
+
+	# format group data and write to a file
+	batch_vector = .getReadgroupColumn(readgroup_data, batch_factor)
+	info = as.data.frame(cbind(rownames(readgroup_data), rownames(readgroup_data), batch_vector, condition_matrix));
+	names(info)[1:3] = c('Array name', 'Sample name', 'Batch');
+	if (length(names(info)) > 3) {
+		names(info)[4:ncol(info)] = paste('Covariate', 4:ncol(info) - 3);	
 	}
-	print(inds);
-	infoToWrite = cbind(gsub('-', '.', rownames(INFO)), INFO[, inds]);
-	infoToWrite = as.data.frame(cbind(names(DAT), infoToWrite));
-	names(infoToWrite)[1:3] = c('Array name', 'Sample name', 'Batch');
-	if (!is.null(COVcol) & is.numeric(COVcol)) {
-		names(infoToWrite)[4:ncol(infoToWrite)] = paste('Covariate ', 1:length(COVcol), sep='');	
-	}
-	write.table(infoToWrite, file='infoForComBat.txt', quote=F, sep='\t', row.names=F);
-	
-	combatout = ComBat(expression_xls='datForComBat.txt', 
-	                   sample_info_file='infoForComBat.txt',
+	write.table(info, file='.infoForComBat.tsv', quote=FALSE, sep='\t', row.names=FALSE);
+
+	# run ComBat
+	combatout = ComBat(expression_xls='.transcriptionDataForComBat.tsv', 
+	                   sample_info_file='.infoForComBat.tsv',
 					   filter=F,
 					   write=F,
 					   skip=1,
 					   ...
 	);
-	test_combatout <<- combatout;
+	file.remove('.transcriptionDataForComBat.tsv');
+	file.remove('.infoForComBat.tsv');
+	
+	# ComBat returns a character error message if it failed. Throw an actual error instead.
 	if (is.character(combatout)) {
 		stop(combatout);
 	}
-	return(combatout[,-1]);
+	return(combatout[,-1]); #-1 is to get rid of gene name column.
 }
 
 
@@ -599,6 +641,8 @@ runPreprocessInteractive = function(trans_and_rg_data,
 makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 	transcription_data = trans_and_rg_data$transcription_data;
 	readgroup_data = trans_and_rg_data$readgroup_data;
+
+	# TODO painfully, painfully slow.
 	
 
 	#dev.off(); TODO resolve this - dev.off() should belong with whoever dev.on()ed
@@ -648,19 +692,25 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 	warning('There are three empty spots still in this plotting window. You\'re using an incomplete function!!');
 
 
+
+
+
+	# impute missing values here TODO
 	combat_outputs = list(preprocessed=preprocess_out$data_Qnorm);
+	combat_factors_sequence = c('Lib.constr.date', 'Tank', 'RNAseq.date'); #TODO make this a parameter
+	
 	new_readgroup_data = preNormPostOutliersINFO; # TODO refactor
 	column_indices_for_plot = match(c('Condition','Tank','Lib.constr.date','RNAseq.date'), names(new_readgroup_data));
-	combat_factors_sequence = c('Lib.constr.date', 'Tank', 'RNAseq.date');
-	covar_i = match('Condition', names(new_readgroup_data));
+
+	condition_matrix = as.matrix(.getCondition(new_readgroup_data));
 	for (factor in combat_factors_sequence) {
-		new_transcription_data = combat_outputs[length(combat_outputs)];
-		factor_i = match(factor, names(new_readgroup_data));
-		out = .runComBat(DAT = new_transcription_data,
-		                 INFO = new_readgroup_data,
-						 BATCHcol = factor_i,
-						 COVcol = covar_i,
-						 impute = F, # TODO in original script this is T on first iteration and F after - why?
+		new_transcription_data = combat_outputs[[length(combat_outputs)]];
+		
+		out = .runComBat(transcription_data = new_transcription_data,
+		                 readgroup_data = new_readgroup_data,
+						 batch_factor = factor,
+						 condition_matrix = condition_matrix,
+						 impute = F,
 						 prior.plots = F
 		);
 		.computeAndPlotFactorEffectsOnMeanExpr(TPM = out,
@@ -672,7 +722,7 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 		combat_outputs[factor] = out;
 	}
 
-
+	# TODO return something!!!
 
 }
 
@@ -702,7 +752,8 @@ runPipeline = function() {
 
 
 
-
+# BACKLOG put all the plots somewhere
+# BACKLOG iterate over TEST_PARAMETERS; evaluate results.
 
 
 

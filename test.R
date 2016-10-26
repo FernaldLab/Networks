@@ -55,3 +55,15 @@ test_removeRarelyExpressedGenes = function() {
 	setVerbosity(); # unsilence printing
 }
 
+
+test_runComBat = function() {
+	source('preprocessing.R');
+	source('test_data/combat_test.R');
+	.runComBat(
+		transcription_data = combat_test$dat,
+		readgroup_data = combat_test$factors,
+		batch_factor = 'batch',
+		condition_matrix = combat_test$factors[,2],
+		impute = FALSE
+	);
+}
