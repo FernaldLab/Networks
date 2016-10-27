@@ -598,6 +598,7 @@ runPreprocessInteractive = function(trans_and_rg_data,
 					   filter=F,
 					   write=F,
 					   skip=1,
+					   prior.plots = F,
 					   ...
 	);
 	file.remove('.transcriptionDataForComBat.tsv');
@@ -695,8 +696,13 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 
 
 
+
 	# impute missing values here TODO
-	combat_outputs = list(preprocessed=preprocess_out$data_Qnorm);
+	#
+	#
+	imputed_data = as.data.frame(impute.knn(as.matrix(preprocess_out$data_Qnorm))$data);
+	realImputed <<- imputed_data
+	combat_outputs = list(preprocessed=imputed_data);
 	combat_factors_sequence = c('Lib.constr.date', 'Tank', 'RNAseq.date'); #TODO make this a parameter
 	
 	new_readgroup_data = preNormPostOutliersINFO; # TODO refactor
@@ -719,7 +725,7 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 											   INFOcols = column_indices_for_plot,
 											   MAIN = paste('After ComBat on', factor)
 		);
-		combat_outputs[factor] = out;
+		combat_outputs[[factor]] = out;
 	}
 
 	# TODO return something!!!
