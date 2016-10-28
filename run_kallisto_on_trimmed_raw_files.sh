@@ -18,12 +18,13 @@
 
 KALLISTO_PATH="/Users/burtonigenomics/Downloads/kallisto/build/src/kallisto"
 OUT_DIR=$2
-KALLISTO_INDEX="/Volumes/Seagate Expansion Hard Drive/_RNAseq/kallisto_index/H_burtoni_rna.fa.kallisto.idx"
+KALLISTO_INDEX="/Volumes/Seagate Expansion Hard Drive/_RNAseq/kallisto_index/H_burtoni_rna_092915.fa.kallisto.idx"
+#KALLISTO_INDEX="/Volumes/Seagate Expansion Hard Drive/_RNAseq/kallisto_index/H_burtoni_rna.fa.kallisto.idx"
 #KALLISTO_INDEX="/Volumes/Seagate\ Expansion\ Hard\ Drive/_RNAseq/kallisto_index/H_burtoni_rna.fa.kallisto.idx"
 #old location on fish studies server:
 #KALLISTO_INDEX="/Volumes/fishstudies/_Burtoni_genome_files/H_burtoni_rna.fa.kallisto.idx"
-cd $1
-mkdir $OUT_DIR
+cd "$1"
+mkdir "$OUT_DIR"
 #get unique subject info for each pair, ex: Mar2015_L1_TCGACCA_L001
 SUBJECTS=`ls | grep fastq | awk '{split($1,a,".");print a[1]}' |  awk '{split($1,a,"_R");print a[1]}' | uniq`
 #iterate through all pairs, calling kallisto:
@@ -40,7 +41,7 @@ do
   #call Kallisto:
   $KALLISTO_PATH quant \
   -i "$KALLISTO_INDEX" \
-  -o $OUT_DIR"/"$pair_info \
+  -o "${OUT_DIR}/"$pair_info \
   -b 0 \
   -t 4 \
   $READS1 $READS2
