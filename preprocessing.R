@@ -517,7 +517,7 @@ runPreprocessInteractive = function(trans_and_rg_data,
 # .computeAndPlotFactorEffectsOnMeanExpr
 #
 # Description:
-# 	helper function for makeFactorEffectsPlots. Directly copy/pasted from
+# 	helper function for plotFactorsAndRunComBat. Directly copy/pasted from
 # 	Austin's old code file; if it works, do we really care what it does?
 # 	TODO write description of plots produced
 #
@@ -612,10 +612,119 @@ runPreprocessInteractive = function(trans_and_rg_data,
 }
 
 
+
 ################################################################################
-# makeFactorEffectsPlots
+# .plotFactorEffects
 # 
-# makeFactorEffectsPlots(trans_and_rg_data=trans_and_rg_data, preprocess_out=preprocess_out)
+# Description:
+# 	Makes length(factors_to_plot) plots, where the [[i]]th plot shows the relative
+# 	contributions of the factors named in factors_to_plot[[i]].
+#
+# Arguments:
+#	Required:
+#	transcription_data - A data frame where each row is a gene and each column
+#	                     is a subject, giving the log transcripts per million (TPM)
+#	                     expression level of each gene
+#	readgroup_data     - A data frame with rownames equal to the column
+#	                     names of transcription_data, containing columns with
+#	                     read group data and (optionally) behavior data
+#	factors_to_plot    - A list where each entry is a character vector of factors
+#	                     (column names in readgroup_data) giving the x-values for
+#	                     that plot.
+#	...                - Any additional parameters to pass to
+#	                     .computeAndPlotFactorEffectsOnMeanExpr()
+#
+#	Optional:
+#	None.
+#
+# Returns:
+# 	Nothing.
+################################################################################
+.plotFactorEffects = function(
+	transcription_data,
+	readgroup_data,
+	factors_to_plot,
+	...
+) {
+	num_subjects = ncol(transcription_data);
+	for (factors in factors_to_plot) {
+		readgroup_columns = match(factors, names(readgroup_data));
+		.computeAndPlotFactorEffectsOnMeanExpr(TPM = transcription_data,
+											   INFO = readgroup_data,
+											   SUBSET = 1:num_subjects,
+											   INFOcols = readgroup_columns,
+											   ...
+		);
+	}
+}
+
+
+################################################################################
+# .runCombatForFactors
+# 
+# Description:
+# 	Iteratively run ComBat on the factors in combat_factors_sequence, make a plot
+# 	for each factor, and output the results in a list where each entry is the
+# 	TPM matrix after one ComBat run.
+#
+# Arguments:
+#	Required:
+#	transcription_data       - A data frame where each row is a gene and each column
+#	                           is a subject, giving the log transcripts per million (TPM)
+#	                           expression level of each gene
+#	readgroup_data           - A data frame with rownames equal to the column
+#	                           names of transcription_data, containing columns with
+#	                           read group data and (optionally) behavior data
+#	combat_factors_sequence  - the character vector giving the order in which factors should
+#	                           be factored out by ComBat. 
+#	factors_to_plot          - A character vector of factors (column names in readgroup_data)
+#	                           giving the x-values for the plots.
+#
+#	Optional:
+#	None.
+#
+# Returns:
+# 	A list containing the transcription_data matrix [[1]] after imputation but before
+# 	ComBat runs, [[2]] after the first ComBat run, [[3]] after the third, etc.
+################################################################################
+.runCombatForFactors = function(
+	transcription_data,
+	readgroup_data,
+	combat_factors_sequence,
+	factors_to_plot
+) {
+	imputed_data = as.data.frame(impute.knn(as.matrix(transcription_data))$data);
+
+	combat_outputs = list(preprocessed=imputed_data);
+	condition_matrix = as.matrix(.getCondition(readgroup_data));
+	for (factor in combat_factors_sequence) {
+		new_transcription_data = combat_outputs[[length(combat_outputs)]];
+		
+		out = .runComBat(transcription_data = new_transcription_data,
+		                 readgroup_data = readgroup_data,
+						 batch_factor = factor,
+						 condition_matrix = condition_matrix,
+						 impute = F,
+						 prior.plots = F
+		);
+		.plotFactorEffects(
+			transcription_data = out,
+			readgroup_data = readgroup_data,
+			factors_to_plot = factors_to_plot,
+			MAIN = paste('After ComBat on', factor)
+		);
+		combat_outputs[[factor]] = out;
+	}
+	
+	return(combat_outputs);
+}
+
+
+
+################################################################################
+# plotFactorsAndRunComBat
+# 
+# plotFactorsAndRunComBat(trans_and_rg_data=trans_and_rg_data, preprocess_out=preprocess_out)
 #
 # Description:
 # 	No side effects; returns nothing.
@@ -625,111 +734,72 @@ runPreprocessInteractive = function(trans_and_rg_data,
 # Arguments:
 #	Required:
 #	trans_and_rg_data - A list containing:
-#		transcription_data - A data frame where each row is a gene and each column
-#		                     is a subject, giving the log transcripts per million (TPM)
-#		                     expression level of each gene
-#		readgroup_data     - A data frame with rownames equal to the column
-#		                     names of transcription_data, containing columns with
-#		                     read group data and (optionally) behavior data
-#	preprocess_out         - The value returned by runPreprocessInteractive
+#		transcription_data   - A data frame where each row is a gene and each column
+#		                       is a subject, giving the log transcripts per million (TPM)
+#		                       expression level of each gene
+#		readgroup_data       - A data frame with rownames equal to the column
+#		                       names of transcription_data, containing columns with
+#		                       read group data and (optionally) behavior data
+#	preprocess_out           - The value returned by runPreprocessInteractive
 #
 #	Optional:
-#		TODO unknown.
+#	combat_factors_sequence  - the character vector giving the order in which factors should
+#	                           be factored out by ComBat. 
 #
 # Returns:
-# 	None.
+# 	A list containing the transcription_data matrix [[1]] after imputation but before
+# 	ComBat runs, [[2]] after the first ComBat run, [[3]] after the third, etc.
 ################################################################################
-makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
+plotFactorsAndRunComBat = function(
+	trans_and_rg_data,
+	preprocess_out,
+	combat_factors_sequence = c('Lib.constr.date', 'Tank', 'RNAseq.date')
+) {
 	transcription_data = trans_and_rg_data$transcription_data;
 	readgroup_data = trans_and_rg_data$readgroup_data;
-
-	# TODO painfully, painfully slow.
-	
 
 	#dev.off(); TODO resolve this - dev.off() should belong with whoever dev.on()ed
 	par(mfrow=c(3,3));
 
 	# TODO make this a parameter
-	factname_groups = list(c('Condition','Tank','Lib.constr.date','RNAseq.date'),
+	factors_to_plot = list(c('Condition','Tank','Lib.constr.date','RNAseq.date'),
 	                       c('Condition','Tank','LibSeq'),
 						   c('Condition','LibSeqTank')
 	);
 
 	# 1. plot for unfilitered data
-	num_subjects = ncol(transcription_data);
-	
-	for (facts_to_plot in factname_groups) {
-		readgroup_columns = match(facts_to_plot, names(readgroup_data));
-		.computeAndPlotFactorEffectsOnMeanExpr(TPM = transcription_data,
-											   INFO = readgroup_data,
-											   SUBSET = 1:num_subjects,
-											   INFOcols = readgroup_columns,
-											   MAIN = 'All subjects'
-		);
-	}
+	.plotFactorEffects(
+		transcription_data = transcription_data,
+		readgroup_data = readgroup_data,
+		factors_to_plot = factors_to_plot,
+		MAIN = 'All subjects'
+	);
 
 	# 2. plot for preprocess()ed data
-	preNormPostOutliersDAT = preprocess_out$data_removedOutlierSamples;
-	preNormPostOutliersINFO = readgroup_data[match(names(preprocess_out$data_removedOutlierSamples), rownames(readgroup_data)), ];
-	num_subjects = ncol(preNormPostOutliersDAT);
-	for (facts_to_plot in factname_groups) {
-		readgroup_columns = match(facts_to_plot, names(preNormPostOutliersINFO));
-		.computeAndPlotFactorEffectsOnMeanExpr(TPM = preNormPostOutliersDAT,
-											   INFO = preNormPostOutliersINFO,
-											   SUBSET = 1:num_subjects,
-											   INFOcols = readgroup_columns,
-											   MAIN = 'After preProcess() interactive script'
-		);
-	}
-
-	# 3. print some things
-	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$Lib.constr.date)));
-	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$RNAseq.date)));
-	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$Tank)));
-	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$LibSeq)));
-	sort(table(paste(preNormPostOutliersINFO$Condition, preNormPostOutliersINFO$LibSeqTank)));
-
-	# 4. TODO there are still 3 empty plots in the plotting window!!!
-	warning('There are three empty spots still in this plotting window. You\'re using an incomplete function!!');
-
-
-
-
-
-
-	# impute missing values here TODO
-	#
-	#
-	imputed_data = as.data.frame(impute.knn(as.matrix(preprocess_out$data_Qnorm))$data);
-	realImputed <<- imputed_data
-	combat_outputs = list(preprocessed=imputed_data);
-	combat_factors_sequence = c('Lib.constr.date', 'Tank', 'RNAseq.date'); #TODO make this a parameter
+	new_readgroup_data = readgroup_data[match(names(preprocess_out$data_removedOutlierSamples), rownames(readgroup_data)), ];
+	.plotFactorEffects(
+		transcription_data = preprocess_out$data_removedOutlierSamples,
+		readgroup_data = new_readgroup_data,
+		factors_to_plot = factors_to_plot,
+		MAIN = 'Outlier subjects removed'
+	);
 	
-	new_readgroup_data = preNormPostOutliersINFO; # TODO refactor
-	column_indices_for_plot = match(c('Condition','Tank','Lib.constr.date','RNAseq.date'), names(new_readgroup_data));
-
-	condition_matrix = as.matrix(.getCondition(new_readgroup_data));
-	for (factor in combat_factors_sequence) {
-		new_transcription_data = combat_outputs[[length(combat_outputs)]];
-		
-		out = .runComBat(transcription_data = new_transcription_data,
-		                 readgroup_data = new_readgroup_data,
-						 batch_factor = factor,
-						 condition_matrix = condition_matrix,
-						 impute = F,
-						 prior.plots = F
-		);
-		.computeAndPlotFactorEffectsOnMeanExpr(TPM = out,
-											   INFO = new_readgroup_data,
-											   SUBSET = 1:ncol(out),
-											   INFOcols = column_indices_for_plot,
-											   MAIN = paste('After ComBat on', factor)
-		);
-		combat_outputs[[factor]] = out;
+	# 3. print some things
+	factors_to_print_about = c('Lib.constr.date', 'RNAseq.date', 'Tank', 'LibSeq', 'LibSeqTank');
+	for (factor in factors_to_print_about) {
+		sort(table(paste(.getCondition(new_readgroup_data), .getReadgroupColumn(new_readgroup_data, factor))));
 	}
 
-	# TODO return something!!!
-
+	# 4. impute missing values and iteratively run ComBat
+	combat_outputs = .runCombatForFactors(
+		transcription_data = preprocess_out$data_Qnorm,
+		readgroup_data = new_readgroup_data,
+		combat_factors_sequence = combat_factors_sequence,
+		factors_to_plot = factors_to_plot[1]
+	);
+	
+	return(combat_outputs);
+# TODO try/catch the combat runs for the singularity error.
 }
 
 
@@ -740,8 +810,10 @@ makeFactorEffectsPlots = function(trans_and_rg_data, preprocess_out) {
 ################################################################################
 ################################################################################
 ################################################################################
-runPipeline = function() {
-	trans_and_rg_data = getAndValidateData();
+runPipeline = function(development = FALSE) {
+	if (!development) {
+		trans_and_rg_data = getAndValidateData();
+	}
 	# BACKLOG getSubsets() - only female, male, etc.
 	trans_and_rg_data <- removeExcludedGenesAndNormalize(trans_and_rg_data = trans_and_rg_data);
 	# BACKLOG remove excluded samples, or high TPM genes
@@ -753,7 +825,7 @@ runPipeline = function() {
 	trans_and_rg_data <- removeLowVarianceGenes(trans_and_rg_data=trans_and_rg_data);
 	# BACKLOG sanity check with prostaglandin
 	preprocess_out <- runPreprocessInteractive(trans_and_rg_data=trans_and_rg_data);
-	makeFactorEffectsPlots(trans_and_rg_data=trans_and_rg_data, preprocess_out=preprocess_out);
+	combat_out <- plotFactorsAndRunComBat(trans_and_rg_data=trans_and_rg_data, preprocess_out=preprocess_out);
 }
 
 
