@@ -229,7 +229,6 @@ getSubset = function() {
 #                       the log (necessary because log(0) = -infinity)
 #                       Note that later, zeroes are removed, but not negative numbers,
 #                       so a value of 1 guarantees that all values are positive.
-#                       This is a TEST_PARAMETER
 #
 # Returns:
 #	A list containing:
@@ -240,9 +239,11 @@ getSubset = function() {
 #	                     names of transcription_data, containing columns with
 #	                     read group data and (optionally) behavior data
 ################################################################################
-removeExcludedGenesAndNormalize = function(trans_and_rg_data,
-                                           genes_to_exclude = c(),
-							               log_addition = 1) {
+removeExcludedGenesAndNormalize = function(
+	trans_and_rg_data,
+	genes_to_exclude = c(),
+	log_addition = 1
+) {
 	transcription_data = trans_and_rg_data$transcription_data;
 
 	# remove given genes
@@ -340,9 +341,15 @@ removeExcludedGenesAndNormalize = function(trans_and_rg_data,
 #	                     names of transcription_data, containing columns with
 #	                     read group data and (optionally) behavior data
 ################################################################################
-removeRarelyExpressedGenes = function(trans_and_rg_data,
-									  max_fraction_zeroes = 0.3,
-									  only_one_group_can_have_zeroes = FALSE) {
+removeRarelyExpressedGenes = function(
+	trans_and_rg_data,
+	max_fraction_zeroes = NULL,
+	only_one_group_can_have_zeroes = NULL
+) {
+	# default parameters
+	if (is.null(max_fraction_zeroes)) max_fraction_zeroes = 0.3;
+	if (is.null(only_one_group_can_have_zeroes)) only_one_group_can_have_zeroes = FALSE;
+
 	transcription_data = trans_and_rg_data$transcription_data
 	zero_counts = apply(transcription_data == 0, 1, sum);
 	
@@ -419,10 +426,14 @@ removeRarelyExpressedGenes = function(trans_and_rg_data,
 #	                     names of transcription_data, containing columns with
 #	                     read group data and (optionally) behavior data
 ################################################################################
-removeLowVarianceGenes = function(trans_and_rg_data,
-								  make_plot = TRUE,
-								  cv_threshold = 0.01
+removeLowVarianceGenes = function(
+	trans_and_rg_data,
+	make_plot = TRUE,
+	cv_threshold = NULL
 ) {
+	# default parameters
+	if (is.null(cv_threshold)) cv_threshold = 0.01;
+
 	transcription_data = trans_and_rg_data$transcription_data;
 	
 	coefficients_of_variance = apply(transcription_data, 1, .coefficientOfVariance);
@@ -491,20 +502,25 @@ removeLowVarianceGenes = function(trans_and_rg_data,
 # 		and other entries that are irrelevant.
 ################################################################################
 runPreprocessInteractive = function(trans_and_rg_data,
-						            deviate=2.5,
+						            deviate=NULL,
 						            probe_thresh=NULL,
 						            sample_thresh=NULL,
-						            IACthresh=2
+						            IACthresh=NULL
 ) {
-	preprocess_out = preProcess(datIN = trans_and_rg_data$transcription_data,
-	                    removeOutlierProbes=TRUE,
-						deviate=deviate,
-						removeTooManyNAs=TRUE,
-						probe_thresh=probe_thresh,
-						sample_thresh=sample_thresh,
-						removeOutlierSamples=TRUE,
-						IACthresh=IACthresh,
-						Qnorm=TRUE
+	# default parameters
+	if (is.null(deviate)) deviate = 2.5;
+	if (is.null(IACthresh)) IACthresh = 2;
+
+	preprocess_out = preProcess(
+		datIN = trans_and_rg_data$transcription_data,
+		removeOutlierProbes=TRUE,
+		deviate=deviate,
+		removeTooManyNAs=TRUE,
+		probe_thresh=probe_thresh,
+		sample_thresh=sample_thresh,
+		removeOutlierSamples=TRUE,
+		IACthresh=IACthresh,
+		Qnorm=TRUE
 	);
 	# TODO this is painfully slow.
 	return(preprocess_out);
@@ -593,13 +609,14 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	write.table(info, file='.infoForComBat.tsv', quote=FALSE, sep='\t', row.names=FALSE);
 
 	# run ComBat
-	combatout = ComBat(expression_xls='.transcriptionDataForComBat.tsv', 
-	                   sample_info_file='.infoForComBat.tsv',
-					   filter=F,
-					   write=F,
-					   skip=1,
-					   prior.plots = F,
-					   ...
+	combatout = ComBat(
+		expression_xls='.transcriptionDataForComBat.tsv', 
+	    sample_info_file='.infoForComBat.tsv',
+		filter=F,
+		write=F,
+		skip=1,
+		prior.plots = F,
+		...
 	);
 	file.remove('.transcriptionDataForComBat.tsv');
 	file.remove('.infoForComBat.tsv');
@@ -649,11 +666,12 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	num_subjects = ncol(transcription_data);
 	for (factors in factors_to_plot) {
 		readgroup_columns = match(factors, names(readgroup_data));
-		.computeAndPlotFactorEffectsOnMeanExpr(TPM = transcription_data,
-											   INFO = readgroup_data,
-											   SUBSET = 1:num_subjects,
-											   INFOcols = readgroup_columns,
-											   ...
+		.computeAndPlotFactorEffectsOnMeanExpr(
+			TPM = transcription_data,
+			INFO = readgroup_data,
+			SUBSET = 1:num_subjects,
+			INFOcols = readgroup_columns,
+			...
 		);
 	}
 }
@@ -700,12 +718,13 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	for (factor in combat_factors_sequence) {
 		new_transcription_data = combat_outputs[[length(combat_outputs)]];
 		
-		out = .runComBat(transcription_data = new_transcription_data,
-		                 readgroup_data = readgroup_data,
-						 batch_factor = factor,
-						 condition_matrix = condition_matrix,
-						 impute = F,
-						 prior.plots = F
+		out = .runComBat(
+			transcription_data = new_transcription_data,
+			readgroup_data = readgroup_data,
+			batch_factor = factor,
+			condition_matrix = condition_matrix,
+			impute = F,
+			prior.plots = F
 		);
 		.plotFactorEffects(
 			transcription_data = out,
@@ -753,19 +772,26 @@ runPreprocessInteractive = function(trans_and_rg_data,
 plotFactorsAndRunComBat = function(
 	trans_and_rg_data,
 	preprocess_out,
-	combat_factors_sequence = c('Lib.constr.date', 'Tank', 'RNAseq.date')
+	factors_to_plot = NULL,
+	combat_factors_sequence = NULL
 ) {
+	# default parameters
+	if (is.null(combat_factors_sequence)) {
+		combat_factors_sequence = c('Lib.constr.date', 'Tank', 'RNAseq.date');
+	}
+	if (is.null(factors_to_plot)) {
+		factors_to_plot = list(
+			c('Condition','Tank','Lib.constr.date','RNAseq.date'),
+			c('Condition','Tank','LibSeq'),
+			c('Condition','LibSeqTank')
+		);
+	}
+
 	transcription_data = trans_and_rg_data$transcription_data;
 	readgroup_data = trans_and_rg_data$readgroup_data;
 
 	#dev.off(); TODO resolve this - dev.off() should belong with whoever dev.on()ed
 	par(mfrow=c(3,3));
-
-	# TODO make this a parameter
-	factors_to_plot = list(c('Condition','Tank','Lib.constr.date','RNAseq.date'),
-	                       c('Condition','Tank','LibSeq'),
-						   c('Condition','LibSeqTank')
-	);
 
 	# 1. plot for unfilitered data
 	.plotFactorEffects(
@@ -799,10 +825,27 @@ plotFactorsAndRunComBat = function(
 	);
 	
 	return(combat_outputs);
-# TODO try/catch the combat runs for the singularity error.
 }
 
 
+################################################################################
+# getPipelineQuality
+#
+# Description:
+# 	Returns a score indicating the "value" of the pipeline.
+#
+# Arguments:
+#	Required:
+#		combat_out
+#
+#
+# Returns:
+# 	0 or 1
+################################################################################
+getPipelineQuality = function(...) {
+	warning('getPipelineQuality is not implemented');
+	return(1);
+}
 
 ################################################################################
 ################################################################################
@@ -810,22 +853,52 @@ plotFactorsAndRunComBat = function(
 ################################################################################
 ################################################################################
 ################################################################################
-runPipeline = function(development = FALSE) {
-	if (!development) {
-		trans_and_rg_data = getAndValidateData();
-	}
+runPipeline = function(
+	trans_and_rg_data,
+	parameters = list(
+		removeRarelyExpressedGenes.max_fraction_zeroes = NULL,
+		removeRarelyExpressedGenes.only_one_group_can_have_zeroes = NULL,
+		removeLowVarianceGenes.cv_threshold = NULL,
+		runPreprocessInteractive.deviate = NULL,
+		runPreprocessInteractive.probe_thresh = NULL,
+		runPreprocessInteractive.sample_thresh = NULL,
+		runPreprocessInteractive.IACthresh = NULL,
+		plotFactorsAndRunComBat.combat_factors_sequence = NULL
+	)
+) {
 	# BACKLOG getSubsets() - only female, male, etc.
 	trans_and_rg_data <- removeExcludedGenesAndNormalize(trans_and_rg_data = trans_and_rg_data);
 	# BACKLOG remove excluded samples, or high TPM genes
     trans_and_rg_data <- removeRarelyExpressedGenes(
         trans_and_rg_data = trans_and_rg_data,
-        max_fraction_zeroes = 0,
-        only_one_group_can_have_zeroes = TRUE
+        max_fraction_zeroes = parameters$removeRarelyExpressedGenes.max_fraction_zeroes,
+        only_one_group_can_have_zeroes = parameters$removeRarelyExpressedGenes.only_one_group_can_have_zeroes
     );
-	trans_and_rg_data <- removeLowVarianceGenes(trans_and_rg_data=trans_and_rg_data);
+	trans_and_rg_data <- removeLowVarianceGenes(
+		trans_and_rg_data=trans_and_rg_data,
+		cv_threshold = parameters$removeLowVarianceGenes.cv_threshold
+	);
 	# BACKLOG sanity check with prostaglandin
-	preprocess_out <- runPreprocessInteractive(trans_and_rg_data=trans_and_rg_data);
-	combat_out <- plotFactorsAndRunComBat(trans_and_rg_data=trans_and_rg_data, preprocess_out=preprocess_out);
+	preprocess_out <- runPreprocessInteractive(
+		trans_and_rg_data=trans_and_rg_data,
+		deviate = parameters$runPreprocessInteractive.deviate,
+		probe_thresh = parameters$runPreprocessInteractive.probe_thresh,
+		sample_thresh = parameters$runPreprocessInteractive.sample_thresh,
+		IACthresh = parameters$runPreprocessInteractive.IAC_thresh
+	);
+	tryCatch({
+		combat_out <- plotFactorsAndRunComBat(
+			trans_and_rg_data=trans_and_rg_data,
+			preprocess_out=preprocess_out,
+			combat_factors_sequence = parameters$plotFactorsAndRunComBat.combat_factors_sequence
+		);
+		score <- getPipelineQuality(combat_out);
+	},
+	error = function(e) {
+		# in this case, ComBat threw a singularity error
+		score <- 0;
+		print(e);
+	});
 }
 
 
