@@ -41,6 +41,7 @@ setVerbosity = function(threshold = 5) {
 			cat(...)
 		}
 	}
+	.verbosity <<- threshold
 }
 setVerbosity();
 

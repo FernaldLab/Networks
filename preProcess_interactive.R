@@ -32,6 +32,7 @@ if (!exists('.catlog')) {
 	.catlog = function(..., importance = 2) {
 		cat(...);
 	}
+	.verbosity = 20
 }
 
 # utility functions
@@ -243,7 +244,7 @@ outlierSamples = function(data, thresh=2, showplots=T, interactive = T) {
 	
 	dataClean = data[, !over_thresh]; 
 	
-	if (interactive) {
+	if (.verbosity >= 2) {
 		.catlog('All samples z.IAC: \n');
 		print(sort(numbersd));
 		.catlog('\n\n');

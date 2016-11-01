@@ -382,7 +382,7 @@ removeRarelyExpressedGenes = function(
 	}
 
 	if (length(rows_to_remove)) {
-		.catlog('Removing', length(rows_to_remove), 'genes with too many zero-expression values.\n', importance = 1)
+		.catlog('Removed', length(rows_to_remove), 'genes with too many zero-expression values.\n', importance = 1)
 		trans_and_rg_data$transcription_data = transcription_data[-rows_to_remove, ];
 	} else {
 		.catlog('No genes have too many zero-expression values.\n', importance = 1)
@@ -560,9 +560,12 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	DAT = DAT[apply(DAT,1,var) > 0, ];
 	meanexpr = apply(DAT, 2, mean, na.rm=T);
 	factors = paste0(paste0('factor(',paste0('INFO[,',INFOcols,']' ),')' ), collapse='+');
-	lmformula = paste0('meanexpr~', factors);print(lmformula)
+	lmformula = paste0('meanexpr~', factors);
+	if (.verbosity >= 2) print(lmformula);
 	pvals = as.vector(na.omit(anova(lm(as.formula(lmformula)))$"Pr(>F)"));
-	print(anova(lm(as.formula(lmformula))));
+	if (.verbosity >= 2) {
+		print(anova(lm(as.formula(lmformula))));
+	}
 	names(pvals) = names(INFO)[INFOcols];
 	barplot(-log10(pvals), ylab='-log10(pval)',main=paste(MAIN,' (n=',ncol(DAT),')',sep=''), ...);
 	abline(h=c(-log10(.05), -log10(.01)), col='red');
@@ -594,8 +597,7 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	prior.plots = FALSE,
 	...
 ) {
-	# TODO AUSTIN maybe impute, maybe not.
-	
+	.catlog('Running ComBat for batch', batch_factor, '\n', importance = 1.5)
 	# format expression data and write to file
 	transcription_data = cbind(gene = rownames(transcription_data), transcription_data);
 	write.table(transcription_data, file = '.transcriptionDataForComBat.tsv', quote = FALSE, sep = '\t', row.names = FALSE);
@@ -713,7 +715,14 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	combat_factors_sequence,
 	factors_to_plot
 ) {
+	if (.verbosity <= 2) {
+		sink('.routput')
+	}
 	imputed_data = as.data.frame(impute.knn(as.matrix(transcription_data))$data);
+	if (.verbosity <= 2) {
+		sink()
+		file.remove('.routput')
+	}
 
 	combat_outputs = list(preprocessed=imputed_data);
 	condition_matrix = as.matrix(.getCondition(readgroup_data));
