@@ -250,11 +250,11 @@ removeExcludedGenesAndNormalize = function(
 	if (length(genes_to_exclude)) {
 		rowsToRemove = match(genes_to_exclude, rownames(transcription_data));
 		transcription_data = transcription_data[-rowsToRemove,];
-		.catlog('Removed ', length(genes_to_exclude), ' user-provided genes.\n' , sep = '', importance = 3)
+		.catlog('Removed ', length(genes_to_exclude), ' user-provided genes.\n' , sep = '', importance = 1)
 	}
 
 	# remove genes with zero variance
-	.catlog('Removed ', sum(!(apply(transcription_data, 1, var) > 0)), ' genes with zero variance.\n' , sep = '', importance = 3)
+	.catlog('Removed ', sum(!(apply(transcription_data, 1, var) > 0)), ' genes with zero variance.\n' , sep = '', importance = 1)
 	transcription_data = transcription_data[apply(transcription_data, 1, var) > 0,];
 
 	# take log of gene expression
@@ -382,10 +382,10 @@ removeRarelyExpressedGenes = function(
 	}
 
 	if (length(rows_to_remove)) {
-		.catlog('Removing', length(rows_to_remove), 'genes with too many zero-expression values.\n', importance = 3)
+		.catlog('Removing', length(rows_to_remove), 'genes with too many zero-expression values.\n', importance = 1)
 		trans_and_rg_data$transcription_data = transcription_data[-rows_to_remove, ];
 	} else {
-		.catlog('No genes have too many zero-expression values.\n', importance = 3)
+		.catlog('No genes have too many zero-expression values.\n', importance = 1)
 	}
 	return(trans_and_rg_data);
 }
@@ -446,7 +446,7 @@ removeLowVarianceGenes = function(
 
 	cvcut = quantile(coefficients_of_variance, cv_threshold);
 	.catlog('Removed ', sum(!(coefficients_of_variance > cvcut)), ' genes with coefficient of variance',
-	        ' below threshold ', cv_threshold, '.\n' , sep = '', importance = 3)
+	        ' below threshold ', cv_threshold, '.\n' , sep = '', importance = 1)
 	transcription_data = transcription_data[coefficients_of_variance > cvcut,];
 	if (make_plot) {
 		new_cv = apply(transcription_data, 1, .coefficientOfVariance);
@@ -505,7 +505,8 @@ runPreprocessInteractive = function(trans_and_rg_data,
 						            deviate=NULL,
 						            probe_thresh=NULL,
 						            sample_thresh=NULL,
-						            IACthresh=NULL
+						            IACthresh=NULL,
+									interactive = TRUE
 ) {
 	# default parameters
 	if (is.null(deviate)) deviate = 2.5;
@@ -520,7 +521,8 @@ runPreprocessInteractive = function(trans_and_rg_data,
 		sample_thresh=sample_thresh,
 		removeOutlierSamples=TRUE,
 		IACthresh=IACthresh,
-		Qnorm=TRUE
+		Qnorm=TRUE,
+		interactive = interactive
 	);
 	# TODO this is painfully slow.
 	return(preprocess_out);
@@ -864,7 +866,8 @@ runPipeline = function(
 		runPreprocessInteractive.sample_thresh = NULL,
 		runPreprocessInteractive.IACthresh = NULL,
 		plotFactorsAndRunComBat.combat_factors_sequence = NULL
-	)
+	),
+	interactivePreproc = FALSE
 ) {
 	# BACKLOG getSubsets() - only female, male, etc.
 	trans_and_rg_data <- removeExcludedGenesAndNormalize(trans_and_rg_data = trans_and_rg_data);
@@ -884,7 +887,8 @@ runPipeline = function(
 		deviate = parameters$runPreprocessInteractive.deviate,
 		probe_thresh = parameters$runPreprocessInteractive.probe_thresh,
 		sample_thresh = parameters$runPreprocessInteractive.sample_thresh,
-		IACthresh = parameters$runPreprocessInteractive.IAC_thresh
+		IACthresh = parameters$runPreprocessInteractive.IAC_thresh,
+		interactive = interactivePreproc
 	);
 	tryCatch({
 		combat_out <- plotFactorsAndRunComBat(

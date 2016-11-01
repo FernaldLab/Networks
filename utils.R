@@ -36,8 +36,8 @@
 # importance - 1 will always get printed, 3 is for only super verbose
 # 0 is so important that it ALWAYS is copied to stdout.
 setVerbosity = function(threshold = 5) {
-	.catlog <<- function(..., importance = 1) {
-		if (importance < threshold) {
+	.catlog <<- function(..., importance = 2) {
+		if (importance <= threshold) {
 			cat(...)
 		}
 	}

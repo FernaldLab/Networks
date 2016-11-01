@@ -27,6 +27,13 @@
 #library(vsn)
 library(preprocessCore)
 
+# so that output can be silenced, we use .catlog fn from utils.R if available.
+if (!exists('.catlog')) {
+	.catlog = function(..., importance = 2) {
+		cat(...);
+	}
+}
+
 # utility functions
 
 cv = function(x) {
@@ -115,10 +122,8 @@ removeOutlierProbes = function(data, deviate=3, rowORcol=1) {
 removeOutlierProbesIterate = function(data, deviate=3, rowORcol=1) {
 	
 	args = match.call();
-	cat('DATASET: '); print(args$data);
-
-	if(rowORcol==1){cat(' Removing probes >',deviate,'stdevs from probeset mean...\n')}; 
-	if(rowORcol==2){cat(' Removing probes >',deviate,'stdevs from sample mean...\n')};
+	if(rowORcol==1){.catlog(' Removing probes >',deviate,'stdevs from probeset mean...\n')}; 
+	if(rowORcol==2){.catlog(' Removing probes >',deviate,'stdevs from sample mean...\n')};
 	
 	single_round_outliers = 1;
 	outlier_running_count = 0;
@@ -138,7 +143,7 @@ removeOutlierProbesIterate = function(data, deviate=3, rowORcol=1) {
 		outlier_positions[[iteration]] = out$outlier_positions;
 		outlier_vals[[iteration]] = out$outlier_vals; 
 		outliers_by_round[iteration] = single_round_outliers;
-		cat('  Round',iteration, 'outliers:', single_round_outliers, '\n');
+		.catlog('  Round',iteration, 'outliers:', single_round_outliers, '\n');
 	
 		};
 	
@@ -148,9 +153,9 @@ removeOutlierProbesIterate = function(data, deviate=3, rowORcol=1) {
 	percent_outliers = 100 * outlier_running_count / total_probes;
 	dataClean = out$dataClean;
 	
-	cat('\n');
-	cat(' Total outliers:', outlier_running_count, '\n');
-	cat(' Percentage of probes that were outliers:', percent_outliers, '\n\n');
+	.catlog('\n');
+	.catlog(' Total outliers:', outlier_running_count, '\n', importance = 1);
+	.catlog(' Percentage of probes that were outliers:', percent_outliers, '\n\n', importance = 1);
 	
 	output = list(dataClean=dataClean, 
 					outlier_positions=outlier_positions,
@@ -174,23 +179,23 @@ removeTooManyNAs = function (data, probe_thresh=NULL, sample_thresh=NULL) {
 		} else {
 			probe_thresh = floor(ncol(data)/3);
 			}
-	cat('\nremoving probes with >', probe_thresh, ' missing measurements\n', sep='');
+	.catlog('\nremoving probes with >', probe_thresh, ' missing measurements\n', sep='');
 			
 	if(is.numeric(sample_thresh)){
 		sample_thresh=sample_thresh;
 		} else {
 			sample_thresh = floor(nrow(data)/3);
 			}
-	cat('removing samples with >', sample_thresh, ' missing measurements\n', sep='');
+	.catlog('removing samples with >', sample_thresh, ' missing measurements\n', sep='');
 	
 	countNAs = apply(is.na(data), 1, sum);
 	probes_over_thresh = (1:dim(data)[1])[countNAs > probe_thresh];		#print(head(probes_over_thresh));print(length(probes_over_thresh))
-	cat('\n');
-	cat(length(probes_over_thresh),'probes removed \n');
+	.catlog('\n');
+	.catlog(length(probes_over_thresh),'probes removed \n', importance = 1);
 	
 	countNAsSamps = apply(is.na(data), 2, sum);
 	samples_over_thresh = (1:dim(data)[2])[countNAsSamps > sample_thresh]; 
-	cat(length(samples_over_thresh),'samples removed \n');
+	.catlog(length(samples_over_thresh),'samples removed \n', importance = 1);
 	
 	dataClean = data;
 	if (length(probes_over_thresh) > 0) {dataClean = data[-probes_over_thresh, ] };
@@ -213,7 +218,7 @@ removeTooManyNAs = function (data, probe_thresh=NULL, sample_thresh=NULL) {
 	
 ##########################################################
 
-outlierSamples = function(data, thresh=2, showplots=T) {
+outlierSamples = function(data, thresh=2, showplots=T, interactive = T) {
 	
 	if (thresh < 0) {thresh = -thresh};
 	
@@ -226,11 +231,11 @@ outlierSamples = function(data, thresh=2, showplots=T) {
 	sdCorr=sd(samplemeanIAC);    
 	numbersd=(samplemeanIAC-meanIACdiag)/sdCorr;
 	
-	cat('\n');
-	cat('Looking for outlier samples (>',thresh,'stdevs from meanIACdiag)...\n');
-	cat('meanIAC =',meanIAC,'\n');
-	cat('meanIACdiag =',meanIACdiag,'\n');
-	cat('\n') 
+	.catlog('\n');
+	.catlog('Looking for outlier samples (>',thresh,'stdevs from meanIACdiag)...\n');
+	.catlog('meanIAC =',meanIAC,'\n', importance = 1);
+	.catlog('meanIACdiag =',meanIACdiag,'\n', importance = 1);
+	.catlog('\n') 
 	
 	over_thresh = numbersd < -thresh | numbersd > thresh; 
 	samples_to_remove = numbersd[over_thresh];
@@ -238,16 +243,19 @@ outlierSamples = function(data, thresh=2, showplots=T) {
 	
 	dataClean = data[, !over_thresh]; 
 	
-	cat('All samples z.IAC: \n');
-	print(sort(numbersd));
-	cat('\n\n');
+	if (interactive) {
+		.catlog('All samples z.IAC: \n');
+		print(sort(numbersd));
+		.catlog('\n\n');
+	}
+
 	if (length(samples_to_remove)!=0) {
-		cat('Possible outliers: \n')
+		.catlog('Possible outliers: \n')
 		#print(formatted);
 		print(samples_to_remove);
-		cat('\n');
+		.catlog('\n');
 		} else {
-			cat('No samples >',thresh,'stdevs from meanIACdiag \n');
+			.catlog('No samples >',thresh,'stdevs from meanIACdiag \n');
 			};
 		
 	output = list(dataClean=dataClean,
@@ -273,7 +281,7 @@ outlierSamples = function(data, thresh=2, showplots=T) {
 	
 ##########################################################
 
-outlierSamplesIterate = function (data, IACthresh=2, showplots=T) {
+outlierSamplesIterate = function (data, IACthresh=2, showplots=T, interactive = TRUE) {
 	
 	if (IACthresh < 0) {IACthresh = -IACthresh};
 	samples_removed = c();
@@ -281,24 +289,28 @@ outlierSamplesIterate = function (data, IACthresh=2, showplots=T) {
 	
 	while (TRUE) {
 		
-		out = outlierSamples(temp,as.numeric(IACthresh),showplots);
+		out = outlierSamples(temp,as.numeric(IACthresh),showplots, interactive=interactive);
 		to_remove = out$samples_to_remove; 
 		if (length(to_remove) < 1) {break}; 
 		
 		answer_raw = readline(prompt='List samples (0 if none) to remove with single spaces in between (no commas): ');
-		if (answer_raw==0) {cat('You didn\'t remove any samples!!! \n'); break};
+		if (answer_raw==0) {.catlog('You didn\'t remove any samples!!! \n'); break};
 		answer = strsplit(answer_raw, ' ');
 		answer = answer[[1]]; 
 		
 		temp = temp[, -match(answer, names(temp))];
 		samples_removed = c(samples_removed, to_remove[names(to_remove)==answer]); 
-		cat('Sample(s)', answer_raw, 'removed \n');
+		.catlog('Sample(s)', answer_raw, 'removed \n');
 			
 		};
 	
-	cat('\n');
-	cat('Any more suspicious samples to remove?');
-	choose = menu(c('Yes','No'));
+	.catlog('\n');
+	if (interactive) {
+		.catlog('Any more suspicious samples to remove?');
+		choose = menu(c('Yes','No'));
+	} else {
+		choose = 2
+	}
 	
 	if (choose==1) {
 		answer_raw = readline(prompt='List samples to remove with single spaces in between (no commas): ');
@@ -306,9 +318,9 @@ outlierSamplesIterate = function (data, IACthresh=2, showplots=T) {
 		answer = answer[[1]]; 
 		temp = temp[, -match(answer, names(temp))];
 		samples_removed = c(samples_removed, out$numbersd[answer]); 
-		cat('Sample(s)', answer_raw, 'removed \n');
+		.catlog('Sample(s)', answer_raw, 'removed \n');
 		} else {
-			cat('Ok... finished\n')
+			.catlog('Ok... finished\n')
 			};
 
 	output = list(dataClean=temp, 
@@ -326,18 +338,28 @@ outlierSamplesIterate = function (data, IACthresh=2, showplots=T) {
 ##########################################################
 
 
-preProcess = function (datIN,
-					removeOutlierProbes=T, deviate=3, rowORcol=1,
-					removeTooManyNAs=T, probe_thresh=NULL, sample_thresh=NULL,
-					removeOutlierSamples=T, IACthresh=2, showplots=T,
-					Qnorm=T,
-					vsn=F, vsnPlot=F,
-					CVsort=F) {
+preProcess = function (
+	datIN,
+	removeOutlierProbes=T,
+	deviate=3,
+	rowORcol=1,
+	removeTooManyNAs=T,
+	probe_thresh=NULL,
+	sample_thresh=NULL,
+	removeOutlierSamples=T,
+	IACthresh=2,
+	showplots=T,
+	Qnorm=T,
+	vsn=F,
+	vsnPlot=F,
+	CVsort=F,
+	interactive = TRUE
+) {
 	
 	# check input, if ok, assign input to 'temp'. if not, quit 
 	if (is.data.frame(datIN) || is.matrix(datIN)) {
 		temp = datIN;
-		cat('Input data has',nrow(temp),'rows (genes) and',ncol(temp),'columns (samples) \n\n');
+		.catlog('Input data has',nrow(temp),'rows (genes) and',ncol(temp),'columns (samples) \n\n');
 		} else {
 			stop('Input data must be in the form of a data frame or matrix!');
 			};
@@ -348,9 +370,9 @@ preProcess = function (datIN,
 	if (removeOutlierProbes) {
 		outlierProbesOUTPUT = removeOutlierProbesIterate(temp, deviate, rowORcol);
 		temp = outlierProbesOUTPUT$dataClean;
-		cat('Processed data available in output as $data_removedOutlierProbes \n');
+		.catlog('Processed data available in output as $data_removedOutlierProbes \n');
 		} else {
-			cat('Skipping removal of outlier probes, checking for probesets and samples with too much missing data...\n');
+			.catlog('Skipping removal of outlier probes, checking for probesets and samples with too much missing data...\n');
 			outlierProbesOUTPUT = NULL;
 			};
 	
@@ -360,9 +382,9 @@ preProcess = function (datIN,
 	if (removeTooManyNAs) {
 		checkMissingDataOUTPUT = removeTooManyNAs(temp, probe_thresh, sample_thresh);
 		temp = checkMissingDataOUTPUT$dataClean;		
-		cat('...Processed data ($data_checkedMissingData) has',nrow(temp),'rows and',ncol(temp),'columns \n');
+		.catlog('...Processed data ($data_checkedMissingData) has',nrow(temp),'rows and',ncol(temp),'columns \n');
 		} else {
-			cat('Skipping removal of probesets and samples with too much missing data, checking for outlier samples...\n');
+			.catlog('Skipping removal of probesets and samples with too much missing data, checking for outlier samples...\n');
 			checkMissingDataOUTPUT = NULL;	
 			};
 	
@@ -370,11 +392,11 @@ preProcess = function (datIN,
 	# if removeOutlierSamples=F, skip. 'temp' holds output of removeTooManyNAs, removeOutlierProbes, or input 
 	# 	set outlierSamplesOUTPUT to NULL
 	if (removeOutlierSamples) {
-		outlierSamplesOUTPUT = outlierSamplesIterate(temp, IACthresh, showplots);
+		outlierSamplesOUTPUT = outlierSamplesIterate(temp, IACthresh, showplots, interactive=interactive);
 		temp = outlierSamplesOUTPUT$dataClean;
-		cat('...Processed data ($data_removedOutlierSamples) now has',nrow(temp),'rows and',ncol(temp),'columns \n\n');
+		.catlog('...Processed data ($data_removedOutlierSamples) now has',nrow(temp),'rows and',ncol(temp),'columns \n\n');
 		} else {
-			cat('Skipping removal of outlier samples...\n');
+			.catlog('Skipping removal of outlier samples...\n');
 			outlierSamplesOUTPUT = NULL;
 			};
 	
@@ -384,24 +406,28 @@ preProcess = function (datIN,
 	# if Qnorm=F, skip and set data_Qnorm to NULL.
 	# 	'temp' holds output of removeOutlierSamples, removeTooManyNAs, removeOutlierProbes, or input  
 	if (Qnorm) {
-		cat('..........\n');
-		cat('Performing quantile normalization...\n')
+		.catlog('..........\n');
+		.catlog('Performing quantile normalization...\n')
 		data_Qnorm = as.data.frame(normalize.quantiles(as.matrix(temp)));
 		names(data_Qnorm) = names(temp); rownames(data_Qnorm) = rownames(temp);
 		temp = data_Qnorm;
-		cat('Normalized data available in output as $data_Qnorm \n\n');
-		cat('Re-check for sample outliers?\n')
-		answer = menu(c('Yes','No'));
+		.catlog('Normalized data available in output as $data_Qnorm \n\n');
+		if (interactive) {
+			.catlog('Re-check for sample outliers?\n')
+			answer = menu(c('Yes','No'));
+		} else {
+			answer = 2
+		}
 		if (answer==1) {
 			postNormOutlierSamples = outlierSamples(data_Qnorm, IACthresh, showplots);
-			cat('\n');
-			cat('Don\'t remove suspicious samples after normalizing!!!\n');
-			cat('Instead, re-run and remove right before normalizing \n\n');
+			.catlog('\n');
+			.catlog('Don\'t remove suspicious samples after normalizing!!!\n');
+			.catlog('Instead, re-run and remove right before normalizing \n\n');
 			} else {
-				cat('You may want to re-check for outlier samples \n\n');
+				.catlog('You may want to re-check for outlier samples \n\n');
 				};
 		} else {
-			cat('Skipping quantile normalization...\n\n');
+			.catlog('Skipping quantile normalization...\n\n');
 			data_Qnorm = NULL;
 			};
 	
@@ -410,12 +436,12 @@ preProcess = function (datIN,
 	# if vsn=F, skip and set data_VSN to NULL.
 	# 	'temp' holds output of Qnorm, removeOutlierSamples, removeTooManyNAs, removeOutlierProbes, or input
 	if (vsn) {
-		cat('Performing variance stabilization...\n\n');
+		.catlog('Performing variance stabilization...\n\n');
 		data_VSN = runVSN(temp, vsnPlot);
 		temp = data_VSN;
-		cat('Variance stabilized data available in output as $data_VSN \n\n');
+		.catlog('Variance stabilized data available in output as $data_VSN \n\n');
 		} else {
-			cat ('Skipping variance stabilization...\n\n');
+			.catlog ('Skipping variance stabilization...\n\n');
 			data_VSN = NULL;
 			};
 	
@@ -424,17 +450,17 @@ preProcess = function (datIN,
 	# 	'temp' holds output of vsn, Qnorm, removeOutlierSamples, removeTooManyNAs, removeOutlierProbes, or input
 	# if CVsort=F, skip and set 'data_Sorted' to NULL
 	if (CVsort) {
-		cat('Sorting probes by CV...\n')
+		.catlog('Sorting probes by CV...\n')
 		data_CVs = apply(temp, 1, cv);
 		data_Sorted = temp[order(data_CVs, decreasing=T), ];
-		cat('Sorted data available in output as $data_Sorted, CVs in $data_CVs \n\n');
+		.catlog('Sorted data available in output as $data_Sorted, CVs in $data_CVs \n\n');
 		} else {
-			cat('Skipping CV sort...\n\n');
+			.catlog('Skipping CV sort...\n\n');
 			data_Sorted = NULL;
 			data_CVs = NULL;
 			};
 	
-	cat('Creating list for output...\n');
+	.catlog('Creating list for output...\n');
 	output = list(outlierProbesOUTPUT=outlierProbesOUTPUT,
 					checkMissingDataOUTPUT=checkMissingDataOUTPUT,
 					outlierSamplesOUTPUT=outlierSamplesOUTPUT,
@@ -447,20 +473,27 @@ preProcess = function (datIN,
 					data_Sorted=data_Sorted
 					);
 	
-	cat('Write any of the output to .csv file?\n');
-	choose = menu(c('Yes','No'));
+	if (interactive) {
+		.catlog('Write any of the output to .csv file?\n');
+		choose = menu(c('Yes','No'));
+	} else {
+		choose = 2
+		# default to no write
+	}
+
+
 	if (choose==1) {
 		choices = names(output)[4:10];
-		cat('Choose one...\n');
+		.catlog('Choose one...\n');
 		choose = 3 + menu(choices=choices);
 		file = readline('Enter a name for the output file, including .csv extension... ');
 		write_out = output[[choose]];
 		write.csv(write_out, file);
-		} else {
-			cat('You didn\'t write any of the output to a file\n');
-			};
+	} else {
+		.catlog('You didn\'t write any of the output to a file\n');
+	}
 	
-	cat('All done!\n');
+	.catlog('All done!\n');
 	return(output); 
 	
 	}
