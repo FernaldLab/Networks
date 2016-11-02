@@ -196,7 +196,7 @@ getAndValidateData = function(transcription_tsv = NA, readgroup_tsv = NA) {
 # Description:
 #	Should either return a List of subsets (all, all but ND, females, etc.) and/or
 #	fetch the data for a specified subset (from transcription_data and readgroup_data)
-#	TODO implement
+#	BACKLOG implement
 #	see ref lines 18-43
 ################################################################################
 getSubset = function() {
@@ -428,7 +428,7 @@ removeRarelyExpressedGenes = function(
 ################################################################################
 removeLowVarianceGenes = function(
 	trans_and_rg_data,
-	make_plot = TRUE,
+	make_plot = FALSE,
 	cv_threshold = NULL
 ) {
 	# default parameters
@@ -522,9 +522,10 @@ runPreprocessInteractive = function(trans_and_rg_data,
 		removeOutlierSamples=TRUE,
 		IACthresh=IACthresh,
 		Qnorm=TRUE,
+		showplots = .verbosity >= 2,
 		interactive = interactive
 	);
-	# TODO this is painfully slow.
+	
 	return(preprocess_out);
 }
 
@@ -537,7 +538,7 @@ runPreprocessInteractive = function(trans_and_rg_data,
 # Description:
 # 	helper function for plotFactorsAndRunComBat. Directly copy/pasted from
 # 	Austin's old code file; if it works, do we really care what it does?
-# 	TODO write description of plots produced
+# 	BACKLOG write description of plots produced
 #
 # Arguments:
 # 	Required:
@@ -576,25 +577,33 @@ runPreprocessInteractive = function(trans_and_rg_data,
 ################################################################################
 # .runComBat
 # 
-# transcription_data = .runComBat(TODO parameters something something)
-#
 # Description:
 # 	Runs the ComBat program from ComBat.R
 #
 # Arguments:
-# 	TODO figure this out
+# 	Required:
+#	transcription_data - A data frame where each row is a gene and each column
+#	                     is a subject, giving the log transcripts per million (TPM)
+#	                     expression level of each gene
+#	readgroup_data     - A data frame with rownames equal to the column
+#	                     names of transcription_data, containing columns with
+#	                     read group data and (optionally) behavior data
+#	batch_factor       - Character; name of the column in readgroup_data whose
+#	                     effect should be filtered out.
+#	condition_matrix   - A subset of the columns in readgroup_data (possibly just one
+#	                     column) representing the covariates like condition whose effect
+#	                     should be preserved
+#	...                - Additional parameters to pass to ComBat()
 #
-# Returns: TODO better description - ask AUSTIN.
-# 	I have literally no idea TODO
-# 	Only thing to test here is different combinations of variables to correct for.
+# Returns:
+# 	A matrix with the same dimensions as transcription_data, where the effects
+# 	of batch_factor have been factored out.
 ################################################################################
 .runComBat = function(
 	transcription_data,
 	readgroup_data,
 	batch_factor, # name of a column in readgroup_data
 	condition_matrix, # nsubjects x ncovariates (usually 1)
-	impute,
-	prior.plots = FALSE,
 	...
 ) {
 	.catlog('Running ComBat for batch', batch_factor, '\n', importance = 1.5)
@@ -616,10 +625,10 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	combatout = ComBat(
 		expression_xls='.transcriptionDataForComBat.tsv', 
 	    sample_info_file='.infoForComBat.tsv',
-		filter=F,
-		write=F,
+		filter=FALSE,
+		write=FALSE,
 		skip=1,
-		prior.plots = F,
+		prior.plots = FALSE,
 		...
 	);
 	file.remove('.transcriptionDataForComBat.tsv');
@@ -665,6 +674,7 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	transcription_data,
 	readgroup_data,
 	factors_to_plot,
+	num_blank_plots = 0,
 	...
 ) {
 	num_subjects = ncol(transcription_data);
@@ -677,6 +687,10 @@ runPreprocessInteractive = function(trans_and_rg_data,
 			INFOcols = readgroup_columns,
 			...
 		);
+	}
+	while (num_blank_plots > 0) {
+		plot.new();
+		num_blank_plots = num_blank_plots - 1;
 	}
 }
 
@@ -733,9 +747,7 @@ runPreprocessInteractive = function(trans_and_rg_data,
 			transcription_data = new_transcription_data,
 			readgroup_data = readgroup_data,
 			batch_factor = factor,
-			condition_matrix = condition_matrix,
-			impute = F,
-			prior.plots = F
+			condition_matrix = condition_matrix
 		);
 		.plotFactorEffects(
 			transcription_data = out,
@@ -757,9 +769,9 @@ runPreprocessInteractive = function(trans_and_rg_data,
 # plotFactorsAndRunComBat(trans_and_rg_data=trans_and_rg_data, preprocess_out=preprocess_out)
 #
 # Description:
-# 	No side effects; returns nothing.
-# 	TODO write description of plots produced
-# 	TODO refactor readgroup_data$* to use new getters
+# 	Makes a matrix of plots giving the significance of various factors to the
+# 	gene expression values (factors_to_plot); then iteratively runs ComBat in the
+# 	order of combat_factors_sequence and plots the results.
 #
 # Arguments:
 #	Required:
@@ -784,7 +796,8 @@ plotFactorsAndRunComBat = function(
 	trans_and_rg_data,
 	preprocess_out,
 	factors_to_plot = NULL,
-	combat_factors_sequence = NULL
+	combat_factors_sequence = NULL,
+	outfile = NULL
 ) {
 	# default parameters
 	if (is.null(combat_factors_sequence)) {
@@ -801,14 +814,20 @@ plotFactorsAndRunComBat = function(
 	transcription_data = trans_and_rg_data$transcription_data;
 	readgroup_data = trans_and_rg_data$readgroup_data;
 
-	#dev.off(); TODO resolve this - dev.off() should belong with whoever dev.on()ed
-	par(mfrow=c(3,3));
+	ncol = max(length(factors_to_plot), length(combat_factors_sequence))
+	if (!is.null(outfile)) {
+		png(filename = outfile, width = 400 * ncol, height = 300 * 3);
+	}
+	par(mfrow=c(3,ncol));
+	num_blank_plots = ncol - length(factors_to_plot)
+
 
 	# 1. plot for unfilitered data
 	.plotFactorEffects(
 		transcription_data = transcription_data,
 		readgroup_data = readgroup_data,
 		factors_to_plot = factors_to_plot,
+		num_blank_plots = num_blank_plots,
 		MAIN = 'All subjects'
 	);
 
@@ -818,6 +837,7 @@ plotFactorsAndRunComBat = function(
 		transcription_data = preprocess_out$data_removedOutlierSamples,
 		readgroup_data = new_readgroup_data,
 		factors_to_plot = factors_to_plot,
+		num_blank_plots = num_blank_plots,
 		MAIN = 'Outlier subjects removed'
 	);
 	
@@ -834,6 +854,10 @@ plotFactorsAndRunComBat = function(
 		combat_factors_sequence = combat_factors_sequence,
 		factors_to_plot = factors_to_plot[1]
 	);
+
+	if (!is.null(outfile)) {
+		dev.off();
+	}
 	
 	return(combat_outputs);
 }
@@ -844,6 +868,7 @@ plotFactorsAndRunComBat = function(
 #
 # Description:
 # 	Returns a score indicating the "value" of the pipeline.
+# 	BACKLOG implement
 #
 # Arguments:
 #	Required:
@@ -864,33 +889,81 @@ getPipelineQuality = function(...) {
 ################################################################################
 ################################################################################
 ################################################################################
+
+
+################################################################################
+# runPipeline
+# 
+# runPipeline(
+# 	trans_and_rg_data = trans_and_rg_data,
+# 	parameters = list(
+# 		removeLowVarianceGenes.cv_threshold = 0.02,
+#		plotFactorsAndRunComBat.factors_to_plot = list(
+#			c('Condition','Tank','Lib.constr.date','RNAseq.date')
+#		)
+#	)
+# );
+#
+# Description:
+# 	Runs through the entire preprocessing pipeline, using the parameters in parameters.
+#
+# Arguments:
+#	Required:
+#	trans_and_rg_data   - A list containing:
+#		transcription_data   - A data frame where each row is a gene and each column
+#		                       is a subject, giving the raw transcripts per million (TPM)
+#		                       expression level of each gene
+#		readgroup_data       - A data frame with rownames equal to the column
+#		                       names of transcription_data, containing columns with
+#		                       read group data and (optionally) behavior data
+#
+#	Optional:
+#	plot_outfile        - character; the file name to which the factor effects plots should
+#	                      be saved.
+#	parameters          - a list() of parameters for the substeps of the preprocessing pipeline.
+#						  Parameters take the form functionName.parameter_name. The default
+#						  value is used for any parameters that are not provided.
+#		List of parameters you can provide:
+#		removeRarelyExpressedGenes.max_fraction_zeroes
+#		removeRarelyExpressedGenes.only_one_group_can_have_zeroes
+#		removeLowVarianceGenes.cv_threshold
+#		runPreprocessInteractive.deviate
+#		runPreprocessInteractive.probe_thresh
+#		runPreprocessInteractive.sample_thresh
+#		runPreprocessInteractive.IACthresh
+#		plotFactorsAndRunComBat.factors_to_plot
+#		plotFactorsAndRunComBat.combat_factors_sequence
+#	interactivePreproc  - Boolean; should the interactive preprocessing script be run interactively?
+#
+# Returns:
+# 	Nothing.
+################################################################################
 runPipeline = function(
 	trans_and_rg_data,
+	plot_outfile = NULL,
 	parameters = list(
-		removeRarelyExpressedGenes.max_fraction_zeroes = NULL,
-		removeRarelyExpressedGenes.only_one_group_can_have_zeroes = NULL,
-		removeLowVarianceGenes.cv_threshold = NULL,
-		runPreprocessInteractive.deviate = NULL,
-		runPreprocessInteractive.probe_thresh = NULL,
-		runPreprocessInteractive.sample_thresh = NULL,
-		runPreprocessInteractive.IACthresh = NULL,
-		plotFactorsAndRunComBat.combat_factors_sequence = NULL
 	),
 	interactivePreproc = FALSE
 ) {
 	# BACKLOG getSubsets() - only female, male, etc.
+	
 	trans_and_rg_data <- removeExcludedGenesAndNormalize(trans_and_rg_data = trans_and_rg_data);
+	
 	# BACKLOG remove excluded samples, or high TPM genes
-    trans_and_rg_data <- removeRarelyExpressedGenes(
+    
+	trans_and_rg_data <- removeRarelyExpressedGenes(
         trans_and_rg_data = trans_and_rg_data,
         max_fraction_zeroes = parameters$removeRarelyExpressedGenes.max_fraction_zeroes,
         only_one_group_can_have_zeroes = parameters$removeRarelyExpressedGenes.only_one_group_can_have_zeroes
     );
+	
 	trans_and_rg_data <- removeLowVarianceGenes(
 		trans_and_rg_data=trans_and_rg_data,
 		cv_threshold = parameters$removeLowVarianceGenes.cv_threshold
 	);
+	
 	# BACKLOG sanity check with prostaglandin
+	
 	preprocess_out <- runPreprocessInteractive(
 		trans_and_rg_data=trans_and_rg_data,
 		deviate = parameters$runPreprocessInteractive.deviate,
@@ -899,15 +972,17 @@ runPipeline = function(
 		IACthresh = parameters$runPreprocessInteractive.IAC_thresh,
 		interactive = interactivePreproc
 	);
+	
 	tryCatch({
 		combat_out <- plotFactorsAndRunComBat(
 			trans_and_rg_data=trans_and_rg_data,
 			preprocess_out=preprocess_out,
-			combat_factors_sequence = parameters$plotFactorsAndRunComBat.combat_factors_sequence
+			factors_to_plot = parameters$plotFactorsAndRunComBat.factors_to_plot,
+			combat_factors_sequence = parameters$plotFactorsAndRunComBat.combat_factors_sequence,
+			outfile = plot_outfile
 		);
 		score <- getPipelineQuality(combat_out);
-	},
-	error = function(e) {
+	}, error = function(e) {
 		# in this case, ComBat threw a singularity error
 		score <- 0;
 		print(e);
@@ -915,8 +990,6 @@ runPipeline = function(
 }
 
 
-
-# BACKLOG put all the plots somewhere
 # BACKLOG iterate over TEST_PARAMETERS; evaluate results.
 
 
