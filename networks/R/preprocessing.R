@@ -40,7 +40,7 @@ init = function() {
 		           'working directory to be the directory containing the code files (using setwd()).'));
 	});
 }
-init();
+#init();
 
 # BACKLOG: write a function that's the equivalent of --help
 
@@ -65,7 +65,6 @@ init();
 #	None.
 ################################################################################
 setUpForDevelopment = function() {
-	init();
 	trans_and_rg_data <<- getAndValidateData(transcription_tsv = 'test_data/transcription_data.tsv',
 	                                         readgroup_tsv = 'test_data/readgroupsdata.tsv');
 	#transcription_data <<- trans_and_rg_data$transcription_data;
@@ -732,7 +731,7 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	if (.verbosity <= 2) {
 		sink('.routput')
 	}
-	imputed_data = as.data.frame(impute.knn(as.matrix(transcription_data))$data);
+	imputed_data = as.data.frame(impute::impute.knn(as.matrix(transcription_data))$data);
 	if (.verbosity <= 2) {
 		sink()
 		file.remove('.routput')
@@ -879,6 +878,11 @@ plotFactorsAndRunComBat = function(
 # 	0 or 1
 ################################################################################
 getPipelineQuality = function(...) {
+	# combat doesn't crash
+	# maximal # of subjects
+	# meanIAC >= .96 or .97
+	# ComBat/plotFactoreffects whatever: condition is significant and nothing else is.
+
 	warning('getPipelineQuality is not implemented');
 	return(1);
 }
