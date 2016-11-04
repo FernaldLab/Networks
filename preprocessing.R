@@ -536,40 +536,64 @@ runPreprocessInteractive = function(trans_and_rg_data,
 # .computeAndPlotFactorEffectsOnMeanExpr
 #
 # Description:
-# 	helper function for plotFactorsAndRunComBat. Directly copy/pasted from
-# 	Austin's old code file; if it works, do we really care what it does?
-# 	BACKLOG write description of plots produced
+# 	Computes the ANOVA significance of each factor in factor_indices on the 
+# 	transcription values, then makes a plot of these.
 #
 # Arguments:
 # 	Required:
-# 	TPM       - the transcription_data
-# 	INFO      - a readgroup_info dataframe corresponding to TPM
-# 	SUBSET    - numeric; which subjects should be considered? (vector of indices)
-# 	INFOcols  - numeric; column indices of INFO that give the factors whose effects
-# 	on mean expression should be considered.
+# 	transcription_data  - the transcription_data
+# 	readgroup_data      - a readgroup_data dataframe corresponding to transcription_data
+# 	subject_indices     - numeric; which subjects should be considered? (vector of indices)
+# 	factor_indices      - numeric; column indices of INFO that give the factors whose effects
+# 	                      on mean expression should be considered.
 # 	
 # 	Optional:
-# 	MAIN      - the title of the plot
+# 	make_plot - boolean; should a plot be produced? Defaults to TRUE.
+# 	main      - the title of the plot
 # 	...       - any graphical parameters, to be passed on to the barplot function
 #
 # Returns:
-# 	None.
+# 	A numeric vector of p values, where the name of each entry is the name of the
+# 	factor column it corresponds to.
 ################################################################################
-.computeAndPlotFactorEffectsOnMeanExpr = function (TPM, INFO, SUBSET, INFOcols, MAIN='', ...) {
-	DAT = TPM[, SUBSET];
-	INFO = INFO[SUBSET, ];
-	DAT = DAT[apply(DAT,1,var) > 0, ];
-	meanexpr = apply(DAT, 2, mean, na.rm=T);
-	factors = paste0(paste0('factor(',paste0('INFO[,',INFOcols,']' ),')' ), collapse='+');
-	lmformula = paste0('meanexpr~', factors);
-	if (.verbosity >= 2) print(lmformula);
-	pvals = as.vector(na.omit(anova(lm(as.formula(lmformula)))$"Pr(>F)"));
+.computeAndPlotFactorEffectsOnMeanExpr = function (
+	transcription_data,
+	readgroup_data,
+	subject_indices,
+	factor_indices,
+	make_plot = TRUE,
+	main = '',
+	...
+) {
+	transcription_data = transcription_data[, subject_indices];
+	readgroup_data = readgroup_data[subject_indices, ];
+	transcription_data = transcription_data[apply(transcription_data,1,var) > 0, ];
+
+
+	mean_expression = apply(transcription_data, 2, mean, na.rm=T);
+	factors = paste0(paste0('factor(',paste0('readgroup_data[,',factor_indices,']' ),')' ), collapse='+');
+	lmformula = paste0('mean_expression~', factors);
+
+	if (.verbosity >= 2) {
+		print(lmformula);
+	}
+	p_values = as.vector(na.omit(anova(lm(as.formula(lmformula)))$"Pr(>F)"));
 	if (.verbosity >= 2) {
 		print(anova(lm(as.formula(lmformula))));
 	}
-	names(pvals) = names(INFO)[INFOcols];
-	barplot(-log10(pvals), ylab='-log10(pval)',main=paste(MAIN,' (n=',ncol(DAT),')',sep=''), ...);
-	abline(h=c(-log10(.05), -log10(.01)), col='red');
+
+	names(p_values) = names(readgroup_data)[factor_indices];
+	if (make_plot) {
+		barplot(
+			-log10(p_values),
+			ylab='-log10(pval)',
+			main=paste(main,' (n=',ncol(transcription_data),')',sep=''),
+			...
+		);
+		abline(h=c(-log10(.05), -log10(.01)), col='red');
+	}
+
+	return(p_values);
 }
 
 
@@ -606,10 +630,14 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	condition_matrix, # nsubjects x ncovariates (usually 1)
 	...
 ) {
+	combat_data_filename = paste('.transcriptionDataForComBat', '_', Sys.time(), '.tsv', sep = '')
+	combat_info_filename = paste('.infoForComBat', '_', Sys.time(), '.tsv', sep = '')
+
+
 	.catlog('Running ComBat for batch', batch_factor, '\n', importance = 1.5)
 	# format expression data and write to file
 	transcription_data = cbind(gene = rownames(transcription_data), transcription_data);
-	write.table(transcription_data, file = '.transcriptionDataForComBat.tsv', quote = FALSE, sep = '\t', row.names = FALSE);
+	write.table(transcription_data, file = combat_data_filename, quote = FALSE, sep = '\t', row.names = FALSE);
 
 
 	# format group data and write to a file
@@ -619,20 +647,20 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	if (length(names(info)) > 3) {
 		names(info)[4:ncol(info)] = paste('Covariate', 4:ncol(info) - 3);	
 	}
-	write.table(info, file='.infoForComBat.tsv', quote=FALSE, sep='\t', row.names=FALSE);
+	write.table(info, file=combat_info_filename, quote=FALSE, sep='\t', row.names=FALSE);
 
 	# run ComBat
 	combatout = ComBat(
-		expression_xls='.transcriptionDataForComBat.tsv', 
-	    sample_info_file='.infoForComBat.tsv',
+		expression_xls=combat_data_filename, 
+	    sample_info_file=combat_info_filename,
 		filter=FALSE,
 		write=FALSE,
 		skip=1,
 		prior.plots = FALSE,
 		...
 	);
-	file.remove('.transcriptionDataForComBat.tsv');
-	file.remove('.infoForComBat.tsv');
+	file.remove(combat_data_filename);
+	file.remove(combat_info_filename);
 	
 	# ComBat returns a character error message if it failed. Throw an actual error instead.
 	if (is.character(combatout)) {
@@ -668,7 +696,8 @@ runPreprocessInteractive = function(trans_and_rg_data,
 #	None.
 #
 # Returns:
-# 	Nothing.
+# 	The p_values vector returned by the last call to .computeAndPlotFactorEffectsOnMeanExpr()
+# 	(last element of factors_to_plot)
 ################################################################################
 .plotFactorEffects = function(
 	transcription_data,
@@ -677,14 +706,15 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	num_blank_plots = 0,
 	...
 ) {
+	p_values = NA
 	num_subjects = ncol(transcription_data);
 	for (factors in factors_to_plot) {
 		readgroup_columns = match(factors, names(readgroup_data));
-		.computeAndPlotFactorEffectsOnMeanExpr(
-			TPM = transcription_data,
-			INFO = readgroup_data,
-			SUBSET = 1:num_subjects,
-			INFOcols = readgroup_columns,
+		p_values = .computeAndPlotFactorEffectsOnMeanExpr(
+			transcription_data = transcription_data,
+			readgroup_data = readgroup_data,
+			subject_indices = 1:num_subjects,
+			factor_indices = readgroup_columns,
 			...
 		);
 	}
@@ -692,6 +722,7 @@ runPreprocessInteractive = function(trans_and_rg_data,
 		plot.new();
 		num_blank_plots = num_blank_plots - 1;
 	}
+	return(p_values)
 }
 
 
@@ -753,7 +784,7 @@ runPreprocessInteractive = function(trans_and_rg_data,
 			transcription_data = out,
 			readgroup_data = readgroup_data,
 			factors_to_plot = factors_to_plot,
-			MAIN = paste('After ComBat on', factor)
+			main = paste('After ComBat on', factor)
 		);
 		combat_outputs[[factor]] = out;
 	}
@@ -828,7 +859,7 @@ plotFactorsAndRunComBat = function(
 		readgroup_data = readgroup_data,
 		factors_to_plot = factors_to_plot,
 		num_blank_plots = num_blank_plots,
-		MAIN = 'All subjects'
+		main = 'All subjects'
 	);
 
 	# 2. plot for preprocess()ed data
@@ -838,7 +869,7 @@ plotFactorsAndRunComBat = function(
 		readgroup_data = new_readgroup_data,
 		factors_to_plot = factors_to_plot,
 		num_blank_plots = num_blank_plots,
-		MAIN = 'Outlier subjects removed'
+		main = 'Outlier subjects removed'
 	);
 	
 	# 3. print some things
@@ -859,7 +890,7 @@ plotFactorsAndRunComBat = function(
 		dev.off();
 	}
 	
-	return(combat_outputs);
+	return(list(combat_outputs = combat_outputs, readgroup_data = new_readgroup_data));
 }
 
 
@@ -878,9 +909,51 @@ plotFactorsAndRunComBat = function(
 # Returns:
 # 	0 or 1
 ################################################################################
-getPipelineQuality = function(...) {
-	warning('getPipelineQuality is not implemented');
-	return(1);
+getPipelineQuality = function(
+	combat_out,
+	readgroup_data,
+	factors_to_test
+) {
+	if (is.null(factors_to_test)) {
+		factors_to_test = c('Lib.constr.date', 'Tank', 'RNAseq.date');
+	}
+	factors_to_test = c('Condition', factors_to_test);
+
+
+	features <- list(
+		combat_ran = TRUE,
+		meanIAC = NA,
+		n_subjects = 0,
+		n_genes = 0,
+		p_condition = NA,
+		p_others = NA,
+		transcription_data = NA,
+		readgroup_data = NA
+	);
+
+	if (is.character(combat_out) && combat_out == 'error') {
+		features$combat_ran <- FALSE;
+	} else {
+		features$transcription_data = combat_out[[length(combat_out)]];
+		features$readgroup_data = readgroup_data;
+		features$n_subjects = ncol(features$transcription_data);
+		features$n_genes = nrow(features$transcription_data);
+
+		p_values = .plotFactorEffects(
+			transcription_data = features$transcription_data,
+			readgroup_data = readgroup_data,
+			factors_to_plot = list(factors_to_test),
+			num_blank_plots = 0,
+			make_plot = FALSE
+		);
+		features$p_condition = p_values['Condition'];
+		features$p_others = p_values[-which(names(p_values) == 'Condition')];
+
+		IACs = cor(features$transcription_data, method="p", use="complete.obs");
+		features$meanIAC = mean(IACs[upper.tri(IACs)]);
+	}
+
+	return(features)
 }
 
 ################################################################################
@@ -972,26 +1045,84 @@ runPipeline = function(
 		IACthresh = parameters$runPreprocessInteractive.IAC_thresh,
 		interactive = interactivePreproc
 	);
-	
+
+	combat_out = filtered_readgroup_data = NA;
 	tryCatch({
-		combat_out <- plotFactorsAndRunComBat(
+		filtered_output <- plotFactorsAndRunComBat(
 			trans_and_rg_data=trans_and_rg_data,
 			preprocess_out=preprocess_out,
 			factors_to_plot = parameters$plotFactorsAndRunComBat.factors_to_plot,
 			combat_factors_sequence = parameters$plotFactorsAndRunComBat.combat_factors_sequence,
 			outfile = plot_outfile
 		);
-		score <- getPipelineQuality(combat_out);
+		combat_out <- filtered_output$combat_output;
+		filtered_readgroup_data <- filtered_output$readgroup_data;
 	}, error = function(e) {
-		# in this case, ComBat threw a singularity error
-		score <- 0;
 		print(e);
+		combat_out <- 'error';
+		filtered_readgroup_data <- 'error';
 	});
+	output <- getPipelineQuality(
+		combat_out,
+		filtered_readgroup_data,
+		factors_to_test = parameters$plotFactorsAndRunComBat.combat_factors_sequence
+	);
+	return(output);
 }
 
 
-# BACKLOG iterate over TEST_PARAMETERS; evaluate results.
+findIdealParameters = function(trans_and_rg_data) {
+	parametersAsString = function(params) {
+		# TODO write
+		return(paste('hi', params$removeLowVarianceGenes.cv_threshold, sep = ''))
+	}
+	num_subjects = ncol(trans_and_rg_data$transcription_data)
 
+
+	# TODO iterate
+	possibleParameters = list(
+		list(),
+		list(removeLowVarianceGenes.cv_threshold = 0.02),
+		list(removeLowVarianceGenes.cv_threshold = 0.005)
+	);
+	metrics = NA 
+
+	for (params in possibleParameters) {
+		outfile_pref = paste('parameter_results/', parametersAsString(params), sep = ''); # TODO make this robust
+			# empty at start
+			# created if nonexistent
+			# pref. dont overwrite ppls stuff w/o asking
+		cat('\n\n\n--------------\n', parametersAsString(params), '\n--------------\n', sep = '');
+		features = runPipeline(
+			trans_and_rg_data,
+			plot_outfile = paste(outfile_pref, 'png', sep = '.'),
+			parameters = params,	
+			interactivePreproc = FALSE
+		);
+
+		# filter out total dealbreakers
+		if (
+			!features$combat_ran ||
+			features$n_subjects < 0.8 * num_subjects ||
+			features$meanIAC < 0.95 ||
+			features$p_condition > 0.15 ||
+			sum(features$p_others < 0.01) > 0
+		) {
+			# run is invalid
+			file.remove(paste(outfile_pref, 'png', sep = '.'));
+		} else {
+			save(features, file = paste(outfile_pref, 'RData', sep = '.'));
+			if (is.na(metrics)) {
+				metrics = data.frame(c(features[1:5], features[[6]]), row.names = parametersAsString(params)) 
+			} else {
+				metrics[parametersAsString(params),] = c(features[1:5], features[[6]]);
+			}
+		}
+	}
+	# TODO identify top candidates.
+	print(metrics);
+	return(metrics);
+}
 
 
 

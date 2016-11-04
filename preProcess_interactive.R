@@ -361,9 +361,9 @@ preProcess = function (
 	if (is.data.frame(datIN) || is.matrix(datIN)) {
 		temp = datIN;
 		.catlog('Input data has',nrow(temp),'rows (genes) and',ncol(temp),'columns (samples) \n\n');
-		} else {
-			stop('Input data must be in the form of a data frame or matrix!');
-			};
+	} else {
+		stop('Input data must be in the form of a data frame or matrix!');
+	};
 	
 	# if removeOutlierProbes=T, run on 'temp' and save processed data in 'temp' for further processing
 	# if removeOutlierProbes=F, skip. 'temp' continues to hold input data.
