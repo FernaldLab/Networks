@@ -1073,21 +1073,42 @@ runPipeline = function(
 
 findIdealParameters = function(trans_and_rg_data) {
 	parametersAsString = function(params) {
-		# TODO write
-		return(paste('hi', params$removeLowVarianceGenes.cv_threshold, sep = ''))
+		string = paste(as.character(params), collapse = '__');
+
+		# get rid of parens
+		string = gsub('[()]', '-', string);
+
+		# get rid of commas
+		string = gsub(',', '.', string);
+
+		# get rid of anything weird
+		string = gsub('[^-a-zA-Z_0-9.]', '', string);
+		return(paste0('params__', string));
 	}
 	num_subjects = ncol(trans_and_rg_data$transcription_data)
 
 
 	# TODO iterate
-	possibleParameters = list(
-		list(),
-		list(removeLowVarianceGenes.cv_threshold = 0.02),
-		list(removeLowVarianceGenes.cv_threshold = 0.005)
+	parameter_values = list(
+		removeRarelyExpressedGenes.max_fraction_zeroes = c(0, 0.33),
+		removeRarelyExpressedGenes.only_one_group_can_have_zeroes = c(TRUE, FALSE) # TODO this is dependent of max_frac_zeroes
+		removeLowVarianceGenes.cv_threshold = c(0.01, 0.1, 0.2)
+		runPreprocessInteractive.deviate = c(2, 2.5, 3) # maybe not 2 if u wanna save time
+		runPreprocessInteractive.probe_thresh = c(0, .33)
+		runPreprocessInteractive.sample_thresh = .33
+		runPreprocessInteractive.IACthresh = c(2, 2.25, 2.5, 3)
+#		plotFactorsAndRunComBat.factors_to_plot - lib prep date, rna seq date, tank
+#		plotFactorsAndRunComBat.combat_factors_sequence - WORST case scenario is 3 batch corrections
+#		
+#
+#		correct for MOST sig, then (IFF cond. not sig or something else is sig.) NEXT MOST sig
 	);
+	
+	parameter_sets = .generateAllParameters(parameter_values);
+	
 	metrics = NA 
 
-	for (params in possibleParameters) {
+	for (params in parameter_sets) {
 		outfile_pref = paste('parameter_results/', parametersAsString(params), sep = ''); # TODO make this robust
 			# empty at start
 			# created if nonexistent
@@ -1103,16 +1124,18 @@ findIdealParameters = function(trans_and_rg_data) {
 		# filter out total dealbreakers
 		if (
 			!features$combat_ran ||
-			features$n_subjects < 0.8 * num_subjects ||
-			features$meanIAC < 0.95 ||
-			features$p_condition > 0.15 ||
-			sum(features$p_others < 0.01) > 0
+			features$n_subjects < 0.66 * num_subjects ||
+			features$meanIAC < 0.9 ||
+			features$p_condition > 0.1 ||
+			sum(features$p_others < 0.05) > 0
 		) {
+			cat('Invalid result.\n');
+			print(features[1:6]);
 			# run is invalid
 			file.remove(paste(outfile_pref, 'png', sep = '.'));
 		} else {
 			save(features, file = paste(outfile_pref, 'RData', sep = '.'));
-			if (is.na(metrics)) {
+			if (is.na(is.data.frame(metrics))) {
 				metrics = data.frame(c(features[1:5], features[[6]]), row.names = parametersAsString(params)) 
 			} else {
 				metrics[parametersAsString(params),] = c(features[1:5], features[[6]]);
@@ -1121,9 +1144,60 @@ findIdealParameters = function(trans_and_rg_data) {
 	}
 	# TODO identify top candidates.
 	print(metrics);
+	# also keep track of # of meaasurements/probes got removed as outliers - keep track of all probe removals SEPARATELY.
+	# 
 	return(metrics);
 }
 
+
+################################################################################
+# .generateAllParameters
+# 
+# .generateAllParameters(
+# 	params_left = list(
+# 		removeLowVarianceGenes.cv_threshold = c(0.05, 0.1, 0.02),
+#		plotFactorsAndRunComBat.factors_to_plot = list(
+#			c('Condition','Tank','Lib.constr.date','RNAseq.date')
+#		),
+#		plotFactorsAndRunComBat.combat_factors_sequence = list(
+#			c('Tank', 'Lib.constr.date', 'RNAseq.date'),
+#			c('Tank', 'LibSeq'),
+#			c('Lib.constr.date', 'RNAseq.date')
+#		)
+#	)
+# );
+#
+# Description:
+# 	Generates a list of parameter sets to iterate over
+#
+# Arguments:
+#	Required:
+#	params_left  - A list giving the parameters that should be added to current_set. The
+#	               name of each entry is the parameter name, and the value is a list or vector of
+#	               possible parameter values.
+#
+#	Optional:
+#	current_set  - The current list of parameters (starts as list())
+#
+# Returns:
+# 	A list() of list()s, where each list is a complete set of parameters, and all
+# 	combinations of parameters are represented.
+################################################################################
+.generateAllParameters = function(params_left, current_set = list()) {
+	if (length(params_left) == 0) {
+		return(list(current_set));
+	}
+	nextParameterName = names(params_left)[1];
+	nextParameterValues = params_left[[1]];
+	params_left = params_left[-1];
+
+	set_of_all_parameters = list();
+	for (val in nextParameterValues) {
+		current_set[[nextParameterName]] = val;
+		set_of_all_parameters = c(set_of_all_parameters, .generateAllParameters(params_left, current_set));
+	}
+	return(set_of_all_parameters);
+}
 
 
 
