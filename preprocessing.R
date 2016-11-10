@@ -707,6 +707,7 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	...
 ) {
 	p_values = NA
+	no_p_values = TRUE
 	num_subjects = ncol(transcription_data);
 	for (factors in factors_to_plot) {
 		readgroup_columns = match(factors, names(readgroup_data));
@@ -717,8 +718,9 @@ runPreprocessInteractive = function(trans_and_rg_data,
 			factor_indices = readgroup_columns,
 			...
 		);
-		if (is.na(p_values)) {
-			p_values = pvs
+		if (no_p_values) {
+			p_values = pvs;
+			no_p_values = FALSE;
 		}
 		else {
 			for (factor in names(pvs)) {
@@ -790,12 +792,15 @@ runPreprocessInteractive = function(trans_and_rg_data,
 			batch_factor = factor,
 			condition_matrix = condition_matrix
 		);
-		.plotFactorEffects(
+		pvals = .plotFactorEffects(
 			transcription_data = out,
 			readgroup_data = readgroup_data,
 			factors_to_plot = factors_to_plot,
 			main = paste('After ComBat on', factor)
 		);
+		if (pvals['Condition'] < 0.05 && sum(pvals[names(pvals) != 'Condition'] < 0.05) == 0) {
+			break;
+		}
 		combat_outputs[[factor]] = out;
 	}
 	
@@ -881,6 +886,22 @@ plotFactorsAndRunComBat = function(
 		num_blank_plots = num_blank_plots,
 		main = 'Outlier subjects removed'
 	);
+
+	print(factor_effects); # TODO remove
+	factor_effects = factor_effects[order(factor_effects)]
+	factor_effects = factor_effects[names(factor_effects) != 'Condition']
+	separate = factor_effects[names(factor_effects) != 'LibSeq'];
+	together = factor_effects[!(names(factor_effects) %in% c('Lib.constr.date', 'RNAseq.date'))]
+	if (separate[1] < together[1]) {
+		factor_effects = separate;
+	} else if (separate[1] > together[1]) {
+		factor_effects = together;
+	} else if (separate[2] <= together[2]) {
+		factor_effects = separate;
+	} else {
+		factor_effects = together;
+	}
+	factor_effects = names(factor_effects)[1:min(3, length(factor_effects))]
 	
 	# 3. print some things
 	factors_to_print_about = c('Lib.constr.date', 'RNAseq.date', 'Tank', 'LibSeq', 'LibSeqTank');
@@ -892,7 +913,7 @@ plotFactorsAndRunComBat = function(
 	combat_outputs = .runCombatForFactors(
 		transcription_data = preprocess_out$data_Qnorm,
 		readgroup_data = new_readgroup_data,
-		combat_factors_sequence = combat_factors_sequence,
+		combat_factors_sequence = factor_effects,
 		factors_to_plot = factors_to_plot[1]
 	);
 
@@ -904,67 +925,6 @@ plotFactorsAndRunComBat = function(
 }
 
 
-################################################################################
-# getPipelineQuality
-#
-# Description:
-# 	Returns a score indicating the "value" of the pipeline.
-# 	BACKLOG implement
-#
-# Arguments:
-#	Required:
-#		combat_out
-#
-#
-# Returns:
-# 	0 or 1
-################################################################################
-getPipelineQuality = function(
-	combat_out,
-	readgroup_data,
-	factors_to_test
-) {
-	if (is.null(factors_to_test)) {
-		factors_to_test = c('Lib.constr.date', 'Tank', 'RNAseq.date');
-	}
-	factors_to_test = c('Condition', factors_to_test);
-
-
-	features <- list(
-		combat_ran = TRUE,
-		meanIAC = NA,
-		n_subjects = 0,
-		n_genes = 0,
-		p_condition = NA,
-		p_others = NA,
-		transcription_data = NA,
-		readgroup_data = NA
-	);
-
-	if (is.character(combat_out) && combat_out == 'error') {
-		features$combat_ran <- FALSE;
-	} else {
-		features$transcription_data = combat_out[[length(combat_out)]];
-		features$readgroup_data = readgroup_data;
-		features$n_subjects = ncol(features$transcription_data);
-		features$n_genes = nrow(features$transcription_data);
-
-		p_values = .plotFactorEffects(
-			transcription_data = features$transcription_data,
-			readgroup_data = readgroup_data,
-			factors_to_plot = list(factors_to_test),
-			num_blank_plots = 0,
-			make_plot = FALSE
-		);
-		features$p_condition = p_values['Condition'];
-		features$p_others = p_values[-which(names(p_values) == 'Condition')];
-
-		IACs = cor(features$transcription_data, method="p", use="complete.obs");
-		features$meanIAC = mean(IACs[upper.tri(IACs)]);
-	}
-
-	return(features)
-}
 
 ################################################################################
 ################################################################################
@@ -1145,16 +1105,21 @@ findIdealParameters = function(trans_and_rg_data, parameter_sets) {
 				interactivePreproc = FALSE
 			);
 			save(output, file = paste(outfile_pref, 'RData', sep = '.'));
-			write(parametersAsString(output$run_features, long = TRUE), file = log_file_name, append = TRUE);
+			.writeParametersToLog(log_file_name, output$run_features);
+			print(output$run_features)
 			if (is.na(is.data.frame(metrics))) {
 				metrics = data.frame(output$run_features, row.names = parametersAsString(params)) 
 			} else {
-				metrics[parametersAsString(params),] = output$run_features
+				metrics = data.frame(rbind(metrics, output$run_features))
+				rownames(metrics)[nrow(metrics)] = parametersAsString(params)
 			}
+			print(metrics);
 		}, error = function(e) {
 			print(e);
 			write(as.character(e), file = log_file_name, append = TRUE)
-			file.remove(paste(outfile_pref, 'png', sep = '.'));
+			if (file.exists(paste(outfile_pref, 'png', sep = '.'))) {
+				file.remove(paste(outfile_pref, 'png', sep = '.'));
+			}
 		});
 	}
 	print(metrics);
