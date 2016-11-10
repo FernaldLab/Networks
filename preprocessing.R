@@ -696,8 +696,8 @@ runPreprocessInteractive = function(trans_and_rg_data,
 #	None.
 #
 # Returns:
-# 	The p_values vector returned by the last call to .computeAndPlotFactorEffectsOnMeanExpr()
-# 	(last element of factors_to_plot)
+# 	The p_values vector returned by the first call to .computeAndPlotFactorEffectsOnMeanExpr()
+# 	(first element of factors_to_plot)
 ################################################################################
 .plotFactorEffects = function(
 	transcription_data,
@@ -710,13 +710,23 @@ runPreprocessInteractive = function(trans_and_rg_data,
 	num_subjects = ncol(transcription_data);
 	for (factors in factors_to_plot) {
 		readgroup_columns = match(factors, names(readgroup_data));
-		p_values = .computeAndPlotFactorEffectsOnMeanExpr(
+		pvs = .computeAndPlotFactorEffectsOnMeanExpr(
 			transcription_data = transcription_data,
 			readgroup_data = readgroup_data,
 			subject_indices = 1:num_subjects,
 			factor_indices = readgroup_columns,
 			...
 		);
+		if (is.na(p_values)) {
+			p_values = pvs
+		}
+		else {
+			for (factor in names(pvs)) {
+				if (!(factor %in% p_values) && factor != 'LibSeqTank') {
+					p_values[factor] <- pvs[factor]
+				}
+			}
+		}
 	}
 	while (num_blank_plots > 0) {
 		plot.new();
@@ -864,7 +874,7 @@ plotFactorsAndRunComBat = function(
 
 	# 2. plot for preprocess()ed data
 	new_readgroup_data = readgroup_data[match(names(preprocess_out$data_removedOutlierSamples), rownames(readgroup_data)), ];
-	.plotFactorEffects(
+	factor_effects = .plotFactorEffects(
 		transcription_data = preprocess_out$data_removedOutlierSamples,
 		readgroup_data = new_readgroup_data,
 		factors_to_plot = factors_to_plot,
@@ -1018,22 +1028,28 @@ runPipeline = function(
 	),
 	interactivePreproc = FALSE
 ) {
+	run_features = list();
+
 	# BACKLOG getSubsets() - only female, male, etc.
-	
+
+	original_num_subjects = ncol(trans_and_rg_data)
 	trans_and_rg_data <- removeExcludedGenesAndNormalize(trans_and_rg_data = trans_and_rg_data);
+	run_features$n_genes_after_removeExcludedGenesAndNormalized = nrow(trans_and_rg_data[[1]])
 	
 	# BACKLOG remove excluded samples, or high TPM genes
-    
+	
 	trans_and_rg_data <- removeRarelyExpressedGenes(
-        trans_and_rg_data = trans_and_rg_data,
-        max_fraction_zeroes = parameters$removeRarelyExpressedGenes.max_fraction_zeroes,
-        only_one_group_can_have_zeroes = parameters$removeRarelyExpressedGenes.only_one_group_can_have_zeroes
-    );
+		trans_and_rg_data = trans_and_rg_data,
+		max_fraction_zeroes = parameters$removeRarelyExpressedGenes.max_fraction_zeroes,
+		only_one_group_can_have_zeroes = parameters$removeRarelyExpressedGenes.only_one_group_can_have_zeroes
+	);
+	run_features$n_genes_after_removeRarelyExpressedGenes = nrow(trans_and_rg_data[[1]])
 	
 	trans_and_rg_data <- removeLowVarianceGenes(
 		trans_and_rg_data=trans_and_rg_data,
 		cv_threshold = parameters$removeLowVarianceGenes.cv_threshold
 	);
+	run_features$n_genes_after_removeLowVarianceGenes = nrow(trans_and_rg_data[[1]])
 	
 	# BACKLOG sanity check with prostaglandin
 	
@@ -1045,107 +1061,103 @@ runPipeline = function(
 		IACthresh = parameters$runPreprocessInteractive.IAC_thresh,
 		interactive = interactivePreproc
 	);
+	# TEST - num subjects
+	run_features$n_subjects = ncol(preprocess_out$data_Qnorm);
+	stopifnot(run_features$n_subjects >= 0.66 * original_num_subjects)
+	run_features$n_genes = nrow(preprocess_out$data_Qnorm);
+	# TEST - meanIAC
+	IACs = cor(preprocess_out$data_Qnorm, method="p", use="complete.obs");
+	run_features$meanIAC = mean(IACs[upper.tri(IACs)]);
+	stopifnot(run_features$meanIAC > 0.9);
 
-	combat_out = filtered_readgroup_data = NA;
-	tryCatch({
-		filtered_output <- plotFactorsAndRunComBat(
-			trans_and_rg_data=trans_and_rg_data,
-			preprocess_out=preprocess_out,
-			factors_to_plot = parameters$plotFactorsAndRunComBat.factors_to_plot,
-			combat_factors_sequence = parameters$plotFactorsAndRunComBat.combat_factors_sequence,
-			outfile = plot_outfile
-		);
-		combat_out <- filtered_output$combat_output;
-		filtered_readgroup_data <- filtered_output$readgroup_data;
-	}, error = function(e) {
-		print(e);
-		combat_out <- 'error';
-		filtered_readgroup_data <- 'error';
-	});
-	output <- getPipelineQuality(
-		combat_out,
-		filtered_readgroup_data,
-		factors_to_test = parameters$plotFactorsAndRunComBat.combat_factors_sequence
+	filtered_output <- plotFactorsAndRunComBat(
+		trans_and_rg_data=trans_and_rg_data,
+		preprocess_out=preprocess_out,
+		factors_to_plot = parameters$plotFactorsAndRunComBat.factors_to_plot,
+		combat_factors_sequence = parameters$plotFactorsAndRunComBat.combat_factors_sequence,
+		outfile = plot_outfile
 	);
-	return(output);
+	combat_out <- filtered_output$combat_output;
+	filtered_readgroup_data <- filtered_output$readgroup_data;
+
+
+	transcription_data = combat_out[[length(combat_out)]];
+	readgroup_data = filtered_readgroup_data;
+	p_values = .plotFactorEffects(
+		transcription_data = transcription_data,
+		readgroup_data = readgroup_data,
+		factors_to_plot = c('Condition', 'Lib.constr.date', 'Tank', 'RNAseq.date'),
+		num_blank_plots = 0,
+		make_plot = FALSE
+	);
+	run_features$p_condition = p_values['Condition'];
+	stopifnot(run_features$p_condition <= 0.1)
+	p_others = p_values[-which(names(p_values) == 'Condition')];
+	names(p_others) <- paste('p', names(p_others), sep = '_');
+	if (sum(p_others < 0.05) > 0) {
+		first_sig_thing = which(p_others < 0.05)[1];
+		stop(paste(names(p_others)[first_sig_thing], 'is < 0.05'));
+	}
+	run_features = c(run_features, p_others)
+	return(list(run_features = run_features, transcription_data = transcription_data, readgroup_data = readgroup_data));
 }
 
 
-findIdealParameters = function(trans_and_rg_data) {
-	parametersAsString = function(params) {
-		string = paste(as.character(params), collapse = '__');
 
+.writeParametersToLog = function(filename, params) {
+	write('\n\n\n======================', filename, append = TRUE)
+	for (i in 1:length(params)) {
+		write(paste0(names(params)[i], ': ', paste(params[[i]], collapse = ',')), filename, append = TRUE)
+	}
+}
+
+
+findIdealParameters = function(trans_and_rg_data, parameter_sets) {
+	parametersAsString = function(params, long = FALSE) {
+		string = paste(if (long) names(params) else '', as.character(params), sep = '_', collapse = '__');
 		# get rid of parens
 		string = gsub('[()]', '-', string);
-
 		# get rid of commas
 		string = gsub(',', '.', string);
-
 		# get rid of anything weird
 		string = gsub('[^-a-zA-Z_0-9.]', '', string);
 		return(paste0('params__', string));
 	}
-	num_subjects = ncol(trans_and_rg_data$transcription_data)
+	setVerbosity(1.6);
 
+	log_file_name = paste0('find_ideal_parameters_log_', Sys.time());
+	dir_name = paste0('parameter_results', Sys.time(), '/');
+	dir.create(dir_name);
+	write('Log\n', log_file_name);
 
-	# TODO iterate
-	parameter_values = list(
-		removeRarelyExpressedGenes.max_fraction_zeroes = c(0, 0.33),
-		removeRarelyExpressedGenes.only_one_group_can_have_zeroes = c(TRUE, FALSE) # TODO this is dependent of max_frac_zeroes
-		removeLowVarianceGenes.cv_threshold = c(0.01, 0.1, 0.2)
-		runPreprocessInteractive.deviate = c(2, 2.5, 3) # maybe not 2 if u wanna save time
-		runPreprocessInteractive.probe_thresh = c(0, .33)
-		runPreprocessInteractive.sample_thresh = .33
-		runPreprocessInteractive.IACthresh = c(2, 2.25, 2.5, 3)
-#		plotFactorsAndRunComBat.factors_to_plot - lib prep date, rna seq date, tank
-#		plotFactorsAndRunComBat.combat_factors_sequence - WORST case scenario is 3 batch corrections
-#		
-#
-#		correct for MOST sig, then (IFF cond. not sig or something else is sig.) NEXT MOST sig
-	);
-	
-	parameter_sets = .generateAllParameters(parameter_values);
-	
-	metrics = NA 
-
+	metrics = NA;
 	for (params in parameter_sets) {
-		outfile_pref = paste('parameter_results/', parametersAsString(params), sep = ''); # TODO make this robust
-			# empty at start
-			# created if nonexistent
-			# pref. dont overwrite ppls stuff w/o asking
-		cat('\n\n\n--------------\n', parametersAsString(params), '\n--------------\n', sep = '');
-		features = runPipeline(
-			trans_and_rg_data,
-			plot_outfile = paste(outfile_pref, 'png', sep = '.'),
-			parameters = params,	
-			interactivePreproc = FALSE
-		);
+		outfile_pref = paste(dir_name, parametersAsString(params), sep = '');
+		.writeParametersToLog(log_file_name, c(params, file_prefix = outfile_pref));
 
-		# filter out total dealbreakers
-		if (
-			!features$combat_ran ||
-			features$n_subjects < 0.66 * num_subjects ||
-			features$meanIAC < 0.9 ||
-			features$p_condition > 0.1 ||
-			sum(features$p_others < 0.05) > 0
-		) {
-			cat('Invalid result.\n');
-			print(features[1:6]);
-			# run is invalid
-			file.remove(paste(outfile_pref, 'png', sep = '.'));
-		} else {
-			save(features, file = paste(outfile_pref, 'RData', sep = '.'));
+		cat('\n\n\n--------------\n', parametersAsString(params, long = TRUE), '\n--------------\n', sep = '');
+
+		tryCatch({
+			output = runPipeline(
+				trans_and_rg_data,
+				plot_outfile = paste(outfile_pref, 'png', sep = '.'),
+				parameters = params,	
+				interactivePreproc = FALSE
+			);
+			save(output, file = paste(outfile_pref, 'RData', sep = '.'));
+			write(parametersAsString(output$run_features, long = TRUE), file = log_file_name, append = TRUE);
 			if (is.na(is.data.frame(metrics))) {
-				metrics = data.frame(c(features[1:5], features[[6]]), row.names = parametersAsString(params)) 
+				metrics = data.frame(output$run_features, row.names = parametersAsString(params)) 
 			} else {
-				metrics[parametersAsString(params),] = c(features[1:5], features[[6]]);
+				metrics[parametersAsString(params),] = output$run_features
 			}
-		}
+		}, error = function(e) {
+			print(e);
+			write(as.character(e), file = log_file_name, append = TRUE)
+			file.remove(paste(outfile_pref, 'png', sep = '.'));
+		});
 	}
-	# TODO identify top candidates.
 	print(metrics);
-	# also keep track of # of meaasurements/probes got removed as outliers - keep track of all probe removals SEPARATELY.
-	# 
 	return(metrics);
 }
 

@@ -293,17 +293,23 @@ outlierSamplesIterate = function (data, IACthresh=2, showplots=T, interactive = 
 		out = outlierSamples(temp,as.numeric(IACthresh),showplots, interactive=interactive);
 		to_remove = out$samples_to_remove; 
 		if (length(to_remove) < 1) {break}; 
-		
-		answer_raw = readline(prompt='List samples (0 if none) to remove with single spaces in between (no commas): ');
-		if (answer_raw==0) {.catlog('You didn\'t remove any samples!!! \n'); break};
-		answer = strsplit(answer_raw, ' ');
-		answer = answer[[1]]; 
-		
+
+		answer = NA
+		if (interactive) {
+			answer_raw = readline(prompt='List samples (0 if none) to remove with single spaces in between (no commas): ');
+			if (answer_raw==0) {.catlog('You didn\'t remove any samples!!! \n'); break};
+			answer = strsplit(answer_raw, ' ');
+			answer = answer[[1]]; 
+		}
+		else {
+			answer = names(to_remove)[1]
+		}
+			
 		temp = temp[, -match(answer, names(temp))];
 		samples_removed = c(samples_removed, to_remove[names(to_remove)==answer]); 
 		.catlog('Sample(s)', answer_raw, 'removed \n');
 			
-		};
+	};
 	
 	.catlog('\n');
 	if (interactive) {
