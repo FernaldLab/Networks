@@ -493,7 +493,6 @@ removeLowVarianceGenes = function(
 #		                        inter-subject correlation)
 #								TEST_PARAMETER: this is the interactive part of the function; not necessarily a hard threshold.
 #								Should be no greater than 3; after 3, don't even ask a human. Test 2 and 2.5 as well.
-#								BACKLOG Get the mean IAC - want it to be >= .97.
 #
 # Returns:
 # 	A list including:
@@ -887,7 +886,7 @@ plotFactorsAndRunComBat = function(
 		main = 'Outlier subjects removed'
 	);
 
-	print(factor_effects); # TODO remove
+	if (verbosity >= 1) print(factor_effects);
 	factor_effects = factor_effects[order(factor_effects)]
 	factor_effects = factor_effects[names(factor_effects) != 'Condition']
 	separate = factor_effects[names(factor_effects) != 'LibSeq'];
