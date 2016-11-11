@@ -886,7 +886,7 @@ plotFactorsAndRunComBat = function(
 		main = 'Outlier subjects removed'
 	);
 
-	if (verbosity >= 1) print(factor_effects);
+	if (.verbosity >= 1) print(factor_effects);
 	factor_effects = factor_effects[order(factor_effects)]
 	factor_effects = factor_effects[names(factor_effects) != 'Condition']
 	separate = factor_effects[names(factor_effects) != 'LibSeq'];
@@ -1010,8 +1010,6 @@ runPipeline = function(
 	);
 	run_features$n_genes_after_removeLowVarianceGenes = nrow(trans_and_rg_data[[1]])
 	
-	# BACKLOG sanity check with prostaglandin
-	
 	preprocess_out <- runPreprocessInteractive(
 		trans_and_rg_data=trans_and_rg_data,
 		deviate = parameters$runPreprocessInteractive.deviate,
@@ -1053,7 +1051,7 @@ runPipeline = function(
 	stopifnot(run_features$p_condition <= 0.1)
 	p_others = p_values[-which(names(p_values) == 'Condition')];
 	names(p_others) <- paste('p', names(p_others), sep = '_');
-	if (sum(p_others < 0.05) > 0) {
+	if (sum(p_others[names(p_others) != 'p_Tank'] < 0.05) > 0) {
 		first_sig_thing = which(p_others < 0.05)[1];
 		stop(paste(names(p_others)[first_sig_thing], 'is < 0.05'));
 	}
@@ -1112,7 +1110,6 @@ findIdealParameters = function(trans_and_rg_data, parameter_sets) {
 				metrics = data.frame(rbind(metrics, output$run_features))
 				rownames(metrics)[nrow(metrics)] = parametersAsString(params)
 			}
-			print(metrics);
 		}, error = function(e) {
 			print(e);
 			write(as.character(e), file = log_file_name, append = TRUE)
