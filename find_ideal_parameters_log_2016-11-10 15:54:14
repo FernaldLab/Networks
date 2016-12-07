@@ -1,0 +1,115 @@
+Log
+
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: TRUE
+removeLowVarianceGenes.cv_threshold: 0.1
+runPreprocessInteractive.deviate: 2
+runPreprocessInteractive.probe_thresh: 0
+runPreprocessInteractive.IACthresh: 2
+file_prefix: parameter_results2016-11-10 15:54:14/params___0___TRUE___0.1___2___0___2
+
+
+
+======================
+n_genes_after_removeExcludedGenesAndNormalized: 23573
+n_genes_after_removeRarelyExpressedGenes: 17082
+n_genes_after_removeLowVarianceGenes: 15373
+n_subjects: 36
+n_genes: 1447
+meanIAC: 0.945766074284055
+p_condition: 0.0968262614965058
+p_Lib.constr.date: 0.115154742960369
+p_Tank: 0.0269419393142695
+p_RNAseq.date: 0.484818822255465
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: TRUE
+removeLowVarianceGenes.cv_threshold: 0.1
+runPreprocessInteractive.deviate: 2
+runPreprocessInteractive.probe_thresh: 0
+runPreprocessInteractive.IACthresh: 2.25
+file_prefix: parameter_results2016-11-10 15:54:14/params___0___TRUE___0.1___2___0___2.25
+
+
+
+======================
+n_genes_after_removeExcludedGenesAndNormalized: 23573
+n_genes_after_removeRarelyExpressedGenes: 17082
+n_genes_after_removeLowVarianceGenes: 15373
+n_subjects: 36
+n_genes: 1447
+meanIAC: 0.945766074284055
+p_condition: 0.0968262614965058
+p_Lib.constr.date: 0.115154742960369
+p_Tank: 0.0269419393142695
+p_RNAseq.date: 0.484818822255465
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: TRUE
+removeLowVarianceGenes.cv_threshold: 0.1
+runPreprocessInteractive.deviate: 2
+runPreprocessInteractive.probe_thresh: 0
+runPreprocessInteractive.IACthresh: 2.5
+file_prefix: parameter_results2016-11-10 15:54:14/params___0___TRUE___0.1___2___0___2.5
+
+
+
+======================
+n_genes_after_removeExcludedGenesAndNormalized: 23573
+n_genes_after_removeRarelyExpressedGenes: 17082
+n_genes_after_removeLowVarianceGenes: 15373
+n_subjects: 36
+n_genes: 1447
+meanIAC: 0.945766074284055
+p_condition: 0.0968262614965058
+p_Lib.constr.date: 0.115154742960369
+p_Tank: 0.0269419393142695
+p_RNAseq.date: 0.484818822255465
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: FALSE
+removeLowVarianceGenes.cv_threshold: 0.01
+runPreprocessInteractive.deviate: 2
+runPreprocessInteractive.probe_thresh: 0.33
+runPreprocessInteractive.IACthresh: 3
+file_prefix: parameter_results2016-11-10 15:54:14/params___0___FALSE___0.01___2___0.33___3
+
+
+
+======================
+n_genes_after_removeExcludedGenesAndNormalized: 23573
+n_genes_after_removeRarelyExpressedGenes: 17082
+n_genes_after_removeLowVarianceGenes: 16911
+n_subjects: 36
+n_genes: 1565
+meanIAC: 0.952918415345488
+p_condition: 0.0979076358539717
+p_Lib.constr.date: 0.0986328645467883
+p_Tank: 0.0269565043768241
+p_RNAseq.date: 0.445174611411709
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0.33
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: FALSE
+removeLowVarianceGenes.cv_threshold: 0.01
+runPreprocessInteractive.deviate: 2.5
+runPreprocessInteractive.probe_thresh: 0
+runPreprocessInteractive.IACthresh: 2.5
+file_prefix: parameter_results2016-11-10 15:54:14/params___0.33___FALSE___0.01___2.5___0___2.5
+Error: run_features$p_condition <= 0.1 is not TRUE
+

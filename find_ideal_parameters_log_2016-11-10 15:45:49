@@ -1,0 +1,67 @@
+Log
+
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: TRUE
+removeLowVarianceGenes.cv_threshold: 0.1
+runPreprocessInteractive.deviate: 2
+runPreprocessInteractive.probe_thresh: 0
+runPreprocessInteractive.IACthresh: 2
+file_prefix: parameter_results2016-11-10 15:45:49/params___0___TRUE___0.1___2___0___2
+Error in runPipeline(trans_and_rg_data, plot_outfile = paste(outfile_pref, : p_Tank is < 0.05
+
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: TRUE
+removeLowVarianceGenes.cv_threshold: 0.1
+runPreprocessInteractive.deviate: 2
+runPreprocessInteractive.probe_thresh: 0
+runPreprocessInteractive.IACthresh: 2.25
+file_prefix: parameter_results2016-11-10 15:45:49/params___0___TRUE___0.1___2___0___2.25
+Error in runPipeline(trans_and_rg_data, plot_outfile = paste(outfile_pref, : p_Tank is < 0.05
+
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: TRUE
+removeLowVarianceGenes.cv_threshold: 0.1
+runPreprocessInteractive.deviate: 2
+runPreprocessInteractive.probe_thresh: 0
+runPreprocessInteractive.IACthresh: 2.5
+file_prefix: parameter_results2016-11-10 15:45:49/params___0___TRUE___0.1___2___0___2.5
+Error in runPipeline(trans_and_rg_data, plot_outfile = paste(outfile_pref, : p_Tank is < 0.05
+
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: FALSE
+removeLowVarianceGenes.cv_threshold: 0.01
+runPreprocessInteractive.deviate: 2
+runPreprocessInteractive.probe_thresh: 0.33
+runPreprocessInteractive.IACthresh: 3
+file_prefix: parameter_results2016-11-10 15:45:49/params___0___FALSE___0.01___2___0.33___3
+Error in runPipeline(trans_and_rg_data, plot_outfile = paste(outfile_pref, : p_Tank is < 0.05
+
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0.33
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: FALSE
+removeLowVarianceGenes.cv_threshold: 0.01
+runPreprocessInteractive.deviate: 2.5
+runPreprocessInteractive.probe_thresh: 0
+runPreprocessInteractive.IACthresh: 2.5
+file_prefix: parameter_results2016-11-10 15:45:49/params___0.33___FALSE___0.01___2.5___0___2.5
+Error: run_features$p_condition <= 0.1 is not TRUE
+

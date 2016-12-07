@@ -1,0 +1,39 @@
+Log
+
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: TRUE
+removeLowVarianceGenes.cv_threshold: 0.1
+runPreprocessInteractive.deviate: 2
+runPreprocessInteractive.probe_thresh: 0
+runPreprocessInteractive.IACthresh: 2
+file_prefix: parameter_results2016-11-10 15:53:13/params___0___TRUE___0.1___2___0___2
+Error in plotFactorsAndRunComBat(trans_and_rg_data = trans_and_rg_data, : object 'verbosity' not found
+
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: TRUE
+removeLowVarianceGenes.cv_threshold: 0.1
+runPreprocessInteractive.deviate: 2
+runPreprocessInteractive.probe_thresh: 0
+runPreprocessInteractive.IACthresh: 2.25
+file_prefix: parameter_results2016-11-10 15:53:13/params___0___TRUE___0.1___2___0___2.25
+Error in plotFactorsAndRunComBat(trans_and_rg_data = trans_and_rg_data, : object 'verbosity' not found
+
+
+
+
+======================
+removeRarelyExpressedGenes.max_fraction_zeroes: 0
+removeRarelyExpressedGenes.only_one_group_can_have_zeroes: TRUE
+removeLowVarianceGenes.cv_threshold: 0.1
+runPreprocessInteractive.deviate: 2
+runPreprocessInteractive.probe_thresh: 0
+runPreprocessInteractive.IACthresh: 2.5
+file_prefix: parameter_results2016-11-10 15:53:13/params___0___TRUE___0.1___2___0___2.5
