@@ -15,15 +15,14 @@ blockwiseModulesEnrichedIterate = function( DATA,
                                             networkType='signed', 
                                             power=14, 
                                             maxBlockSize=ncol(DATA)+1, 
-										                        deepSplitVec=c(2,4), 
-										                        mergeCutHeight=0.1, 
-										                        minModuleSizeVec=c(10,20,40,80,100), 
-										                        minKMEtoStayVec=c(0.3, 0.5),
-										                        minCoreKMEVec=c(0.5, 0.7),
-										                        densityPermTest=F, 
-										                        skipThresh=300, 
-										                        ...
-										                       ) {
+					    deepSplitVec=c(2,4), 
+					    mergeCutHeight=0.1, 
+					    minModuleSizeVec=c(10,20,40,80,100), 
+				            minKMEtoStayVec=c(0.3, 0.5),
+		                            minCoreKMEVec=c(0.5, 0.7),
+					    densityPermTest=F, 
+					    skipThresh=300, 
+					    ...) {
 	
 	for (DS in deepSplitVec) {
 		for (MM in minModuleSizeVec) {
