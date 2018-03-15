@@ -39,11 +39,20 @@ blockwiseModulesEnrichedIterate = function( DATA,
 					    '\n',
 					    sep=''
 					    );
-					net = blockwiseModulesEnriched(DATA=DATA, maxBlockSize=maxBlockSize, power=power, networkType=networkType, minModuleSize=MM,
-											   	   deepSplit=DS, minKMEtoStay=MkME, minCoreKME=MCkME, mergeCutHeight=mergeCutHeight,
-											   	   densityPermTest=densityPermTest, skipThresh=skipThresh, verbose=0,
-											  	   saveFileBase=saveFileBase, ...
-											  	   );
+					net = blockwiseModulesEnriched(DATA=DATA, 
+								       maxBlockSize=maxBlockSize, 
+								       power=power, 
+								       networkType=networkType, 
+								       minModuleSize=MM,
+								       deepSplit=DS, 
+								       minKMEtoStay=MkME, 
+								       minCoreKME=MCkME, 
+								       mergeCutHeight=mergeCutHeight,
+								       densityPermTest=densityPermTest, 
+								       skipThresh=skipThresh, 
+								       verbose=0,
+								       saveFileBase=saveFileBase, 
+								       ...);
 				}
 			}
 		}
@@ -76,33 +85,33 @@ blockwiseModulesEnrichedIterate = function( DATA,
 # =======================================================================================================================================================
 
 blockwiseModulesEnriched = function( DATA,                    # data frame of expression values, columns should be genes        
-								                     maxBlockSize=6000,       # maxBlockSize value for blockwiseModules
-								                     fixedBlockSize=TRUE,     # ignore for now (keep set to TRUE), experimental for adjusting maxBlockSize automatically
-								                     networkType='signed',    # string defining signed/unsigned network type for blockwiseModules
-								                     power=14,                # integer power value for blockwiseModules
-								                     deepSplit=2,             # integer deepSplit value for blockwiseModules
-								                     minModuleSize=10,        # integer minModuleSize value for blockwiseModules
-								                     smartMinModThresh=2,     # ignore
-								                     smartMinModMultiplier=2, # ignore
-								                     densityPermTest=TRUE,    # boolean indicating whether to perform module density permutation testing
-								                     plotModDensities=TRUE,   # if densityPermTest = T, plot module densities as a function of module size after each run
-								                     nPerm=1000,              # if densityPermTest = T, integer to set number of permutations 
-								                     permTestPvalThresh=.01,  # if densityPermTest = T, numeric p-value threshold for passing the density test
-								                     skipThresh=500,          # if densityPermTest = T, integer defining module size required to skip density test
-								                     skipGrey=TRUE,           # if densityPermTest = T, boolean defining whether to test density of grey genes
-								                     onlyGreyThresh=3,        # if densityPermTest = T, integer defining number of runs with only grey background genes before density test is canceled 
-								                     preTOM=NULL,             # if densityPermTest = T, user can provide pre-computed TOM matrix 
-								                     verbose=1,               # integer verbose value for blockwiseModules
-								                     saveNets=TRUE,           # boolean indicating whether to save network object from each run into a .RData file
-								                     saveDendros=TRUE,        # boolean indicating whether to save jpgs of dendrograms from each run, one per block
-								                     saveDATA=TRUE,           # boolean indicating whether to save input data from each run into a .RData file
-								                     savePermOut=TRUE,        # if densityPermTest = T, boolean indicating whether to save density test results from each run into a .RData file
-								                     saveFileBase='',         # string to serve as prefix for any output file names
-								                     setRun=NULL,             # integer to set initial run number (mostly used if function had to be quit and restarted)
-								                     graphicsType='quartz',   # if saveDendros = T, string defining graphics device 
-								                     res=150,                 # if saveDendros = T, integer defining jpg resolution
-								                     ...                      # additional arguments to blockwiseModules
-								                    ) {
+				     maxBlockSize=6000,       # maxBlockSize value for blockwiseModules
+				     fixedBlockSize=TRUE,     # ignore for now (keep set to TRUE), experimental for adjusting maxBlockSize automatically
+				     networkType='signed',    # string defining signed/unsigned network type for blockwiseModules
+				     power=14,                # integer power value for blockwiseModules
+				     deepSplit=2,             # integer deepSplit value for blockwiseModules
+				     minModuleSize=10,        # integer minModuleSize value for blockwiseModules
+				     smartMinModThresh=2,     # ignore
+				     smartMinModMultiplier=2, # ignore
+				     densityPermTest=TRUE,    # boolean indicating whether to perform module density permutation testing
+				     plotModDensities=TRUE,   # if densityPermTest = T, plot module densities as a function of module size after each run
+				     nPerm=1000,              # if densityPermTest = T, integer to set number of permutations 
+				     permTestPvalThresh=.01,  # if densityPermTest = T, numeric p-value threshold for passing the density test
+				     skipThresh=500,          # if densityPermTest = T, integer defining module size required to skip density test
+				     skipGrey=TRUE,           # if densityPermTest = T, boolean defining whether to test density of grey genes
+				     onlyGreyThresh=3,        # if densityPermTest = T, integer defining number of runs with only grey background genes before density test is canceled 
+				     preTOM=NULL,             # if densityPermTest = T, user can provide pre-computed TOM matrix 
+				     verbose=1,               # integer verbose value for blockwiseModules
+				     saveNets=TRUE,           # boolean indicating whether to save network object from each run into a .RData file
+				     saveDendros=TRUE,        # boolean indicating whether to save jpgs of dendrograms from each run, one per block
+				     saveDATA=TRUE,           # boolean indicating whether to save input data from each run into a .RData file
+				     savePermOut=TRUE,        # if densityPermTest = T, boolean indicating whether to save density test results from each run into a .RData file
+				     saveFileBase='',         # string to serve as prefix for any output file names
+				     setRun=NULL,             # integer to set initial run number (mostly used if function had to be quit and restarted)
+				     graphicsType='quartz',   # if saveDendros = T, string defining graphics device 
+				     res=150,                 # if saveDendros = T, integer defining jpg resolution
+				     ...                      # additional arguments to blockwiseModules
+				   ) {
   
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Prepare for running blockwiseModules in a while-loop 
@@ -179,16 +188,17 @@ blockwiseModulesEnriched = function( DATA,                    # data frame of ex
 		if (saveDATA) { save(DATA, file=paste0(saveFileBase, 'run', run, 'DATA.RData')) }
 		
 		# run blockwiseModules 
-		net = blockwiseModules(DATA,
-							             maxBlockSize=adjustedBlockSize,
-							             networkType=networkType,
-							             power=power,
-							             deepSplit=deepSplit,
-							             minModuleSize=minModuleSize,
-							             saveTOMs=saveTOMs,
-							             saveTOMFileBase=saveTOMFileBase,
-							             verbose=verbose, 
-							             ...);
+		net = blockwiseModules( DATA,
+				        maxBlockSize=adjustedBlockSize,
+					networkType=networkType,
+					power=power,
+					deepSplit=deepSplit,
+					minModuleSize=minModuleSize,
+					saveTOMs=saveTOMs,
+					saveTOMFileBase=saveTOMFileBase,
+					verbose=verbose, 
+					...
+				      );
 		
 		# save the network object from this run if requested
 		if (saveNets) { save(net, file=paste0(saveFileBase, 'run', run, 'NET.RData')) }
@@ -211,15 +221,18 @@ blockwiseModulesEnriched = function( DATA,                    # data frame of ex
 			cat('   ...saving dendrogram(s) as .jpgs\n');
 			for (block in 1:length(net$blockGenes)) {
 				jpeg(file=paste0(saveFileBase, 'run', run, 'dendro-block', block, '.jpg'), 
-					   width=15, height=6, units='in', quality=100, 
-					   type=graphicsType, 
-					   res=res);
+			             width=15, height=6, units='in', quality=100, 
+				     type=graphicsType, 
+				     res=res);
 				plotDendroAndColors(net$dendrograms[[block]],
-					                  net$colors[ net$blockGenes[[block]] ],
-					                  groupLabels='module',
-					                  rowText=net$colors[ net$blockGenes[[block]] ],
-					                  main=paste0('block ', block, ': ', length(net$blockGenes[[block]]), ' genes'),
-					                  dendroLabels=FALSE, hang=.05, addGuide=TRUE, guideHang=.05);
+					            net$colors[ net$blockGenes[[block]] ],
+					            groupLabels='module',
+					            rowText=net$colors[ net$blockGenes[[block]] ],
+		                                    main=paste0('block ', block, ': ', length(net$blockGenes[[block]]), ' genes'),
+			         	            dendroLabels=FALSE, 
+						    hang=.05, 
+						    addGuide=TRUE, 
+						    guideHang=.05);
 				dev.off();
 			}
 		}
@@ -229,7 +242,7 @@ blockwiseModulesEnriched = function( DATA,                    # data frame of ex
   # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------  
 		if (densityPermTest) {
 		  
-		# --------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	  # --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	  # Get the TOM
 	  # --------------------------------------------------------------------------------------------------------------------------------------------------------------------  
 		  # if a single-block TOM from blockwiseModules was saved, reload it
@@ -248,7 +261,9 @@ blockwiseModulesEnriched = function( DATA,                    # data frame of ex
 			#  this could be massive if the network had to be built in multiple blocks, try to avoid
 			} else {
 				cat('   ...re-computing TOM\n');
-				TOM = TOMsimilarityFromExpr(DATA, networkType=networkType, power=power);
+				TOM = TOMsimilarityFromExpr(DATA, 
+							    networkType=networkType, 
+							    power=power);
 			}
 			collectGarbage();
 			
@@ -256,11 +271,19 @@ blockwiseModulesEnriched = function( DATA,                    # data frame of ex
 		# Run the test and remove any background genes
 		# --------------------------------------------------------------------------------------------------------------------------------------------------------------------  
 			# get actual density of each module
-			modDensities = getModDensitiesFromTOM(TOM, net$colors, plot=plotModDensities, skipGrey=skipGrey);
+			modDensities = getModDensitiesFromTOM(TOM, 
+							      net$colors, 
+							      plot=plotModDensities, 
+							      skipGrey=skipGrey);
 			
 			# run permutation tests
 			cat('\n   ...working on density perm test\n');
-			permTest = modDensityPerm(TOM, net$colors, modDensities, nPerm=nPerm, skipThresh=skipThresh, skipGrey=skipGrey);
+			permTest = modDensityPerm(TOM, 
+						  net$colors, 
+						  modDensities, 
+						  nPerm=nPerm, 
+						  skipThresh=skipThresh, 
+						  skipGrey=skipGrey);
 			
 			# get names of any modules that failed the density test
 			weakTOM = names( table(net$colors)[permTest$pvals > permTestPvalThresh] );
